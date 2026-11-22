@@ -21,8 +21,8 @@ jobs:
         os: [windows-latest, macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
       - name: Install dependencies
@@ -39,7 +39,11 @@ jobs:
           BLAM_SMOKE=1 timeout 120 xvfb-run -a ./dist/linux-unpacked/blam --no-sandbox
       - name: Launch test (macOS, packaged app)
         if: runner.os == 'macOS'
-        run: BLAM_SMOKE=1 timeout 120 "./dist/mac-universal/BLAM.app/Contents/MacOS/BLAM"
+        timeout-minutes: 3
+        run: |
+          APP=$(ls -d dist/mac*/BLAM.app | head -1)
+          echo "Testing $APP"
+          BLAM_SMOKE=1 "$APP/Contents/MacOS/BLAM"
       - name: Launch test (Windows, packaged app)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -63,7 +67,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Read version
         id: v
         run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
