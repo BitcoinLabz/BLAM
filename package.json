@@ -1,0 +1,64 @@
+{
+  "name": "blam",
+  "productName": "BLAM",
+  "version": "1.0.0",
+  "description": "BLAM — Bitcoin Labz Asset Manager. A private, local-first desktop command center for your entire financial life: crypto, stocks, ETFs, dividends, real estate, rentals, loans, metals, passive income, budgets and spending.",
+  "main": "src/main/main.js",
+  "author": "Bitcoin Labz",
+  "license": "MIT",
+  "homepage": "https://github.com/BitcoinLabz/BLAM",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --publish never",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:mac": "electron-builder --mac --publish never",
+    "dist:linux": "electron-builder --linux --publish never"
+  },
+  "devDependencies": {
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.bitcoinlabz.blam",
+    "productName": "BLAM",
+    "copyright": "Copyright © 2026 Bitcoin Labz",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "BLAM"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.finance",
+      "icon": "build/icon.png"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Finance",
+      "icon": "build/icon.png",
+      "maintainer": "Bitcoin Labz"
+    }
+  }
+}

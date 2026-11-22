@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.coingecko.com https://query1.finance.yahoo.com https://query2.finance.yahoo.com;">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BLAM — Bitcoin Labz Asset Manager</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <div class="app" id="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">B</div>
+        <div class="brand-t"><b>BLAM</b><small>Bitcoin Labz Asset Manager</small></div>
+      </div>
+      <nav class="nav" id="nav"></nav>
+      <div class="side-foot">
+        <div class="nw-mini"><small>Net Worth</small><div id="side-nw" class="amt">—</div></div>
+      </div>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <span class="crumb" id="crumb">Dashboard</span>
+        <span class="sp"></span>
+        <span class="price-stamp"><span class="live-dot"></span><span id="price-stamp">Prices: never</span></span>
+        <button class="icon-btn" data-act="refresh" title="Refresh live prices">REFRESH</button>
+        <button class="icon-btn" data-act="privacy" title="Privacy mode (blur amounts)">PRIVACY</button>
+        <button class="icon-btn" data-act="lock" title="Lock BLAM">LOCK</button>
+        <button class="btn primary sm" data-act="quickadd">ADD</button>
+      </header>
+      <div class="content" id="content"><div class="content-inner" id="view"></div></div>
+    </main>
+  </div>
+
+  <script src="js/util.js"></script>
+  <script src="js/finance.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/automation.js"></script>
+  <script src="js/sample.js"></script>
+  <script src="js/views/dashboard.js"></script>
+  <script src="js/views/accounts.js"></script>
+  <script src="js/views/transactions.js"></script>
+  <script src="js/views/budget.js"></script>
+  <script src="js/views/recurring.js"></script>
+  <script src="js/views/investments.js"></script>
+  <script src="js/views/income.js"></script>
+  <script src="js/views/realestate.js"></script>
+  <script src="js/views/loans.js"></script>
+  <script src="js/views/metals.js"></script>
+  <script src="js/views/assets.js"></script>
+  <script src="js/views/goals.js"></script>
+  <script src="js/views/reports.js"></script>
+  <script src="js/views/automation.js"></script>
+  <script src="js/views/settings.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
