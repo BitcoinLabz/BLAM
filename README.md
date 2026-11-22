@@ -45,13 +45,14 @@ Most finance apps want your bank password and live in someone else's cloud. BLAM
 
 ## Download & install
 
-### Option 1 — Prebuilt installers (easiest)
-Go to **[Releases](../../releases)** and download:
-- **Windows:** `BLAM Setup x.x.x.exe` (installer) or `BLAM x.x.x.exe` (portable)
-- **macOS:** `BLAM-x.x.x.dmg` — first launch: right-click the app → **Open** (it isn't notarized)
-- **Linux:** `BLAM-x.x.x.AppImage` or `.deb`
+### Option 1 — Download the installer (easiest)
+Go to **[Releases → Latest](https://github.com/BitcoinLabz/BLAM/releases/latest)** and download:
+- **Windows:** `BLAM-Setup-x.x.x.exe` (installer) or `BLAM-Portable-x.x.x.exe` (runs without installing)
+  - If Windows SmartScreen appears, click **More info → Run anyway** (the app isn't code-signed yet).
+- **macOS (Intel & Apple Silicon):** `BLAM-x.x.x-mac-universal.dmg` — drag BLAM to Applications, then the first time **right-click → Open**.
+- **Linux:** `.AppImage` (make it executable, double-click) or `.deb` (`sudo apt install ./BLAM-*.deb`)
 
-> Installers are built automatically by GitHub Actions. To create one: **Actions → Build BLAM installers → Run workflow**, then grab the files from the run's *Artifacts*. Pushing a tag like `v1.0.0` also publishes them to a Release.
+> Every push to `main` automatically builds all three platforms with GitHub Actions and publishes them to the Release for the version in `package.json`. Bump the version to cut a new release.
 
 ### Option 2 — Run from source
 Requires [Node.js 20+](https://nodejs.org).

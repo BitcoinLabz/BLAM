@@ -1,12 +1,17 @@
-name: Build BLAM installers
+name: Build & Release BLAM
 
 on:
   push:
+    branches: [main]
     tags: ['v*']
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -20,11 +25,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
       - name: Build installer
         run: npx electron-builder --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-artifact@v4
         with:
           name: BLAM-${{ runner.os }}
@@ -33,13 +40,37 @@ jobs:
             dist/*.dmg
             dist/*.AppImage
             dist/*.deb
-          if-no-files-found: ignore
-      - name: Attach to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read version
+        id: v
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - run: ls -la artifacts
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            dist/*.exe
-            dist/*.dmg
-            dist/*.AppImage
-            dist/*.deb
+          tag_name: v${{ steps.v.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: BLAM v${{ steps.v.outputs.version }}
+          make_latest: true
+          body: |
+            ## BLAM — Bitcoin Labz Asset Manager v${{ steps.v.outputs.version }}
+
+            **Download for your computer:**
+            - **Windows:** `BLAM-Setup-${{ steps.v.outputs.version }}.exe` (installer) or `BLAM-Portable-${{ steps.v.outputs.version }}.exe` (no install)
+            - **macOS (Intel + Apple Silicon):** `BLAM-${{ steps.v.outputs.version }}-mac-universal.dmg` — first launch: right-click BLAM → Open
+            - **Linux:** `.AppImage` (any distro) or `.deb` (Ubuntu/Debian)
+
+            Windows SmartScreen may say "Windows protected your PC" because the app isn't code-signed yet — click **More info → Run anyway**.
+
+            All data stays on your computer. See the README for details.
+          files: artifacts/*
