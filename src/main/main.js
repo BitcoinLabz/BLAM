@@ -87,6 +87,22 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+
+  // CI self-test: BLAM_SMOKE=1 launches, verifies the UI rendered without errors, then exits.
+  if (process.env.BLAM_SMOKE) {
+    const errors = [];
+    mainWindow.webContents.on('console-message', (_e, level, message) => {
+      if (level >= 3 && !/fetch|net::|ERR_/i.test(message)) errors.push(message);
+    });
+    mainWindow.webContents.on('did-finish-load', () => setTimeout(async () => {
+      try {
+        const r = await mainWindow.webContents.executeJavaScript(
+          `({ nav: document.querySelectorAll('#nav a').length, title: document.title, text: document.getElementById('view').innerText.slice(0, 60), demo: !!window.BLAM && typeof BLAM.sampleData === 'function' })`);
+        console.log('[BLAM_SMOKE]', JSON.stringify(r), 'errors:', JSON.stringify(errors));
+        app.exit(r.nav >= 15 && r.demo && !errors.length ? 0 : 1);
+      } catch (e) { console.log('[BLAM_SMOKE] failed', e); app.exit(1); }
+    }, 2500));
+  }
   mainWindow.once('ready-to-show', () => mainWindow.show());
 
   // Open external links in the user's browser, never inside the app.
