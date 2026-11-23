@@ -41,10 +41,26 @@
     const t = S.totals();
     document.getElementById('side-nw').textContent = U.money(t.netWorth, 0);
     document.getElementById('side-nw').className = `amt ${t.netWorth < 0 ? 'neg' : ''}`;
-    document.getElementById('price-stamp').textContent = S.state.settings.lastPriceSuccess ? `Prices ${U.timeAgo(S.state.settings.lastPriceSuccess)}` : (S.state.settings.lastPriceRefresh ? 'Prices offline' : 'Prices: not yet');
-    document.querySelector('.live-dot').style.background = S.state.settings.lastPriceSuccess ? '' : 'var(--warn)';
+    const ps = priceStatus();
+    const stamp = document.getElementById('price-stamp');
+    stamp.textContent = ps.text;
+    stamp.parentElement.title = ps.title;
+    document.querySelector('.live-dot').style.background = ps.color;
     document.body.classList.toggle('privacy', !!S.state.settings.privacy);
     document.querySelector('[data-act="privacy"]').innerHTML = UI.icon(S.state.settings.privacy ? 'eyeoff' : 'eye');
+  }
+
+  /** What the top-bar price indicator should say, based on what actually happened last refresh. */
+  function priceStatus() {
+    const st = S.state.settings;
+    const last = st.lastPriceStatus;
+    const okAgo = st.lastPriceSuccess ? U.timeAgo(st.lastPriceSuccess) : null;
+    if (navigator.onLine === false) return { text: okAgo ? `Offline · prices ${okAgo}` : 'Offline', color: 'var(--neg)', title: 'No network connection. Prices will refresh when you reconnect.' };
+    if (!st.lastPriceRefresh) return { text: 'Prices: not yet', color: 'var(--faint)', title: 'Click refresh to load live prices' };
+    if (last && last.ok === 0 && last.fail > 0) return { text: okAgo ? `Prices offline · last ${okAgo}` : 'Prices offline', color: 'var(--neg)', title: `Last attempt ${U.timeAgo(last.at)} failed for every price source.` };
+    if (last && last.fail > 0) return { text: `Prices ${okAgo || U.timeAgo(last.at)} · ${last.fail} unavailable`, color: 'var(--warn)', title: `${last.ok} updated, ${last.fail} unavailable — see Crypto & Stocks for details.` };
+    if (!okAgo) return { text: 'Prices: not yet', color: 'var(--faint)', title: '' };
+    return { text: `Prices ${okAgo}`, color: '', title: `Live prices updated ${new Date(st.lastPriceSuccess).toLocaleString()}` };
   }
 
   function route() {
@@ -174,6 +190,8 @@
     route();
     A.start();
     setInterval(updateChrome, 30000);
+    window.addEventListener('online', updateChrome);
+    window.addEventListener('offline', updateChrome);
   }
   boot();
 })(window.BLAM);

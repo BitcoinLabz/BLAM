@@ -115,39 +115,63 @@
       const cryptoH = auto.filter((h) => h.assetClass === 'crypto' && A.cryptoId(h));
       const secH = auto.filter((h) => h.assetClass !== 'crypto' && h.symbol);
       const metalSyms = Object.entries(S.METALS).filter(([k]) => s.metals.some((m) => m.metal === k) || ['gold', 'silver'].includes(k)).map(([, v]) => v.symbol);
+      const offline = navigator.onLine === false;
 
-      const [cp, qp] = await Promise.all([
+      const [cp, qp] = offline ? [{}, {}] : await Promise.all([
         cryptoH.length ? fetchCrypto(cryptoH.map(A.cryptoId)).catch((e) => { console.warn(e); return {}; }) : {},
         (secH.length || metalSyms.length) ? fetchQuotes([...secH.map((h) => h.symbol.toUpperCase()), ...metalSyms]).catch((e) => { console.warn(e); return {}; }) : {},
       ]);
+      const errors = [];
       S.commit((st) => {
         for (const h of st.holdings) {
-          if (h.autoPrice === false) continue;
-          const q = h.assetClass === 'crypto' ? cp[A.cryptoId(h)] : qp[String(h.symbol || '').toUpperCase()];
+          if (h.autoPrice === false) { delete h.priceError; continue; }
+          const key = h.assetClass === 'crypto' ? A.cryptoId(h) : String(h.symbol || '').toUpperCase();
+          if (!key) { h.priceError = h.assetClass === 'crypto' ? 'No CoinGecko ID — edit the holding or use Find coin' : 'No ticker symbol'; fail++; continue; }
+          if (offline) continue; // keep last known state; the top bar shows we're offline
+          const q = h.assetClass === 'crypto' ? cp[key] : qp[key];
           if (q && Number.isFinite(q.price)) {
-            h.price = q.price; h.change24h = q.change24h; h.priceUpdated = now; ok++;
+            h.price = q.price; h.change24h = Number.isFinite(q.change24h) ? q.change24h : null; h.priceUpdated = now; h.priceSource = q.source || null; ok++;
+            delete h.priceError;
             if (!h.name && q.name) h.name = q.name;
-          } else if (h.assetClass === 'crypto' ? A.cryptoId(h) : h.symbol) fail++;
+          } else {
+            h.priceError = q?.error || 'No response from price service';
+            errors.push(`${h.symbol}: ${h.priceError}`);
+            fail++;
+          }
         }
+        let metalsOk = 0;
         for (const [k, v] of Object.entries(S.METALS)) {
           const q = qp[v.symbol];
-          if (q && Number.isFinite(q.price)) { st.metalPrices[k] = q.price; st.metalPrices[`${k}Change`] = q.change24h; }
+          if (q && Number.isFinite(q.price)) {
+            st.metalPrices[k] = q.price; st.metalPrices[`${k}Change`] = Number.isFinite(q.change24h) ? q.change24h : null; metalsOk++;
+            if (s.metals.some((m) => m.metal === k)) ok++;
+          } else if (!offline && s.metals.some((m) => m.metal === k)) { fail++; errors.push(`${v.label}: ${q?.error || 'unavailable'}`); }
         }
-        if (Object.values(qp).some((q) => q && q.price)) st.metalPrices.updated = now;
+        if (metalsOk) st.metalPrices.updated = now;
         st.settings.lastPriceRefresh = now;
+        st.settings.lastPriceStatus = { at: now, ok, fail: offline ? Math.max(1, fail) : fail, offline };
         if (ok) st.settings.lastPriceSuccess = now;
       });
       S.snapshot();
-      if (!quiet) B.UI.toast(fail ? `Updated ${ok} prices · ${fail} unavailable` : `Updated ${ok} live prices`, fail && !ok ? 'warn' : 'ok');
-      S.log(`Price refresh: ${ok} updated${fail ? `, ${fail} failed` : ''}`, 'auto');
+      if (errors.length) console.warn('[prices]', errors.join(' | '));
+      if (!quiet) {
+        if (offline) B.UI.toast('You appear to be offline — prices not updated', 'warn');
+        else B.UI.toast(fail ? `Updated ${ok} prices · ${fail} unavailable` : `Updated ${ok} live prices`, fail && !ok ? 'error' : fail ? 'warn' : 'ok');
+      }
+      S.log(offline ? 'Price refresh skipped: offline' : `Price refresh: ${ok} updated${fail ? `, ${fail} unavailable` : ''}`, fail && !ok ? 'warn' : 'auto');
     } catch (e) {
       console.error(e);
+      S.commit((st) => { st.settings.lastPriceRefresh = now; st.settings.lastPriceStatus = { at: now, ok: 0, fail: 1, offline: navigator.onLine === false }; });
       if (!quiet) B.UI.toast('Price refresh failed — check your connection', 'error');
     } finally {
       refreshing = false;
       document.body.classList.remove('refreshing');
     }
   };
+
+  // Refresh as soon as the connection comes back.
+  window.addEventListener('online', () => setTimeout(() => A.refreshPrices({ quiet: true }), 1500));
+  window.addEventListener('offline', () => B.rerender && B.rerender());
 
   A.searchCrypto = async (q) => {
     if (hasDesktop()) return window.blam.cryptoSearch(q);
@@ -163,6 +187,8 @@
     if (!targets.length) { B.UI.toast('Add stocks or ETFs first', 'warn'); return; }
     if (!hasDesktop()) { B.UI.toast('Dividend sync runs in the desktop app', 'warn'); return; }
     let logged = 0, updated = 0;
+    const failed = [];
+    B.UI.toast(`Syncing dividends for ${targets.length} holding${targets.length === 1 ? '' : 's'}…`);
     for (const h of targets) {
       try {
         const hist = await window.blam.dividends(h.symbol.toUpperCase(), 2);
@@ -182,11 +208,12 @@
             logged++;
           }
         }, { silent: true });
-      } catch (e) { console.warn('div', h.symbol, e); }
+      } catch (e) { failed.push(h.symbol); console.warn('[dividends]', h.symbol, String(e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')); }
     }
     S.commit(() => {});
-    S.log(`Dividend sync: ${updated} holdings updated, ${logged} payouts logged`, 'auto');
-    B.UI.toast(`Dividends synced · ${logged} new payout${logged === 1 ? '' : 's'} logged`);
+    S.log(`Dividend sync: ${updated} holdings updated, ${logged} payouts logged${failed.length ? `, unavailable: ${failed.join(', ')}` : ''}`, failed.length ? 'warn' : 'auto');
+    if (failed.length && !updated) B.UI.toast(`Dividend data unavailable — check your connection (${failed.join(', ')})`, 'error');
+    else B.UI.toast(`Dividends synced · ${logged} new payout${logged === 1 ? '' : 's'} logged${failed.length ? ` · ${failed.length} unavailable (${failed.join(', ')})` : ''}`, failed.length ? 'warn' : 'ok');
   };
 
   // --------------------------------------------------------------- reminders

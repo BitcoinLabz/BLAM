@@ -124,11 +124,13 @@
       list.sort(U.by(sortFns[V.sort] || sortFns.value, V.dir));
       const classes = Object.keys(S.ASSET_CLASSES).filter((k) => s.holdings.some((h) => h.assetClass === k));
       const th = (k, label, r) => `<th class="${r ? 'r' : ''}" style="cursor:pointer" data-act="sort" data-k="${k}">${label}${V.sort === k ? (V.dir > 0 ? ' ↑' : ' ↓') : ''}</th>`;
-      const stale = s.holdings.some((h) => h.autoPrice !== false) && (!s.settings.lastPriceRefresh || Date.now() - new Date(s.settings.lastPriceRefresh) > 3600e3);
+      const stale = s.holdings.some((h) => h.autoPrice !== false) && (!s.settings.lastPriceSuccess || Date.now() - new Date(s.settings.lastPriceSuccess) > 3600e3);
+      const unavailable = s.holdings.filter((h) => h.autoPrice !== false && h.priceError);
 
       root.innerHTML = `
         ${UI.pageHead('Crypto & Stocks', 'Live-priced portfolio across crypto, stocks, ETFs, funds and bonds.', `${UI.btn('Find coin', 'find', { icon: 'search' })}${UI.btn('Refresh prices', 'refresh', { icon: 'refresh' })}${UI.btn('Add holding', 'add', { icon: 'plus', kind: 'primary' })}`)}
-        ${stale ? `<div class="callout info" style="margin-bottom:16px">${UI.icon('info')}<div>Prices were last updated ${U.timeAgo(s.settings.lastPriceRefresh)}. BLAM refreshes automatically every ${s.settings.autoRefreshMinutes || 15} minutes while open.</div></div>` : ''}
+        ${unavailable.length ? `<div class="callout warn" style="margin-bottom:16px">${UI.icon('info')}<div><b>${unavailable.length} price${unavailable.length === 1 ? '' : 's'} unavailable:</b> ${unavailable.slice(0, 6).map((h) => `${U.esc(h.symbol)} <span class="faint">(${U.esc(h.priceError)})</span>`).join(', ')}${unavailable.length > 6 ? '…' : ''}. Values use the last known price. Check the ticker / CoinGecko ID, or turn off live pricing to enter prices manually.</div></div>` : ''}
+        ${stale && !unavailable.length ? `<div class="callout info" style="margin-bottom:16px">${UI.icon('info')}<div>Prices were last updated ${U.timeAgo(s.settings.lastPriceSuccess)}. BLAM refreshes automatically every ${s.settings.autoRefreshMinutes || 15} minutes while open.</div></div>` : ''}
         <div class="grid g5">
           ${UI.kpi({ label: 'Portfolio value', icon: 'chart', accent: '#f7931a', value: U.m(total, 0), sub: `${list.length} positions` })}
           ${UI.kpi({ label: 'Today', icon: 'bolt', accent: day >= 0 ? '#2ecf8f' : '#f45b72', value: U.mc(day, 0), sub: total ? U.pc(day / (total - day)) : '' })}
@@ -142,8 +144,8 @@
           ${list.map(({ h, m }) => `<tr class="click" data-act="edit" data-id="${h.id}">
             <td><div class="asset-cell"><div class="asset-ic" style="background:${S.ASSET_CLASSES[h.assetClass]?.color}">${U.esc((h.symbol || '?').slice(0, 4))}</div><div><b>${U.esc(h.symbol)}</b><div class="sub">${U.esc(h.name || S.ASSET_CLASSES[h.assetClass]?.label)}</div></div></div></td>
             <td class="r">${U.qty(h.quantity)}</td>
-            <td class="r">${U.money(h.price, U.num(h.price) < 1 ? 4 : 2)}${h.autoPrice === false ? '<div class="sub">manual</div>' : ''}</td>
-            <td class="r">${h.change24h != null ? U.pc(h.change24h / 100) : '<span class="faint">—</span>'}</td>
+            <td class="r">${U.money(h.price, U.num(h.price) < 1 ? 4 : 2)}${h.autoPrice === false ? '<div class="sub">manual</div>' : h.priceError ? `<div class="sub"><span class="tag" style="--tc:var(--warn)" title="${U.esc(h.priceError)}${h.priceUpdated ? ` · last live price ${U.esc(U.timeAgo(h.priceUpdated))}` : ''}">price unavailable</span></div>` : ''}</td>
+            <td class="r">${h.change24h != null && !h.priceError ? U.pc(h.change24h / 100) : '<span class="faint">—</span>'}</td>
             <td class="r"><b>${U.m(m.value)}</b></td>
             <td class="r muted">${U.num(h.quantity) ? U.money(m.cost / h.quantity, m.cost / h.quantity < 1 ? 4 : 2) : '—'}</td>
             <td class="r">${U.mc(m.gain)}</td>

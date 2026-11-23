@@ -6,8 +6,8 @@
  *  - Window lifecycle (single instance, secure defaults: contextIsolation + sandbox)
  *  - Local persistence: atomic JSON writes to the OS user-data folder
  *  - Rolling daily backups (last 30 kept)
- *  - Market-data fetching (done here, not in the renderer, to avoid CORS and keep
- *    the renderer free of network privileges)
+ *  - Market-data fetching (market.js — done here, not in the renderer, to avoid
+ *    CORS and keep the renderer free of network privileges)
  *  - Native dialogs (import / export) and desktop notifications
  */
 'use strict';
@@ -15,6 +15,7 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, Notification, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { cryptoPrices, cryptoSearch, quotes, dividendHistory } = require('./market');
 
 const APP_NAME = 'BLAM';
 let mainWindow = null;
@@ -153,93 +154,6 @@ function buildMenu() {
     },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
-}
-
-// ---------------------------------------------------------------------------
-// Market data
-// ---------------------------------------------------------------------------
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 BLAM/1.0';
-
-async function getJSON(url, timeoutMs = 12000) {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'application/json' }, signal: ctrl.signal });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } finally {
-    clearTimeout(t);
-  }
-}
-
-/** CoinGecko simple price (no API key required). */
-async function cryptoPrices(ids) {
-  if (!ids || !ids.length) return {};
-  const uniq = [...new Set(ids.filter(Boolean).map((s) => s.toLowerCase()))];
-  const out = {};
-  // CoinGecko accepts comma-separated ids; chunk to keep URLs short.
-  for (let i = 0; i < uniq.length; i += 50) {
-    const chunk = uniq.slice(i, i + 50);
-    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(chunk.join(','))}&vs_currencies=usd&include_24hr_change=true`;
-    const data = await getJSON(url);
-    for (const [id, v] of Object.entries(data)) {
-      out[id] = { price: v.usd, change24h: v.usd_24h_change ?? null };
-    }
-  }
-  return out;
-}
-
-async function cryptoSearch(q) {
-  const data = await getJSON(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(q)}`);
-  return (data.coins || []).slice(0, 12).map((c) => ({ id: c.id, symbol: c.symbol, name: c.name, rank: c.market_cap_rank }));
-}
-
-/** Yahoo Finance chart endpoint: works for stocks, ETFs, mutual funds, futures (GC=F etc). */
-async function yahooQuote(symbol) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1d`;
-  const data = await getJSON(url);
-  const r = data?.chart?.result?.[0];
-  if (!r) throw new Error('No data');
-  const m = r.meta || {};
-  const price = m.regularMarketPrice;
-  const prev = m.chartPreviousClose ?? m.previousClose;
-  return {
-    price,
-    change24h: prev ? ((price - prev) / prev) * 100 : null,
-    currency: m.currency,
-    name: m.longName || m.shortName || symbol,
-    exchange: m.exchangeName,
-  };
-}
-
-async function quotes(symbols) {
-  const out = {};
-  const uniq = [...new Set((symbols || []).filter(Boolean).map((s) => s.toUpperCase()))];
-  // Small concurrency pool to be polite to the endpoint.
-  const pool = 4;
-  let idx = 0;
-  async function worker() {
-    while (idx < uniq.length) {
-      const sym = uniq[idx++];
-      try {
-        out[sym] = await yahooQuote(sym);
-      } catch (e) {
-        out[sym] = { error: String(e.message || e) };
-      }
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(pool, uniq.length) }, worker));
-  return out;
-}
-
-/** Dividend history (per-share amounts) for the last N years. */
-async function dividendHistory(symbol, years = 2) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${years}y&interval=1mo&events=div`;
-  const data = await getJSON(url);
-  const divs = data?.chart?.result?.[0]?.events?.dividends || {};
-  return Object.values(divs)
-    .map((d) => ({ date: new Date(d.date * 1000).toISOString().slice(0, 10), amount: d.amount }))
-    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 // ---------------------------------------------------------------------------
