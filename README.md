@@ -52,7 +52,7 @@ Go to **[Releases → Latest](https://github.com/BitcoinLabz/BLAM/releases/lates
 - **macOS (Intel & Apple Silicon):** `BLAM-x.x.x-mac-universal.dmg` — drag BLAM to Applications, then the first time **right-click → Open**.
 - **Linux:** `.AppImage` (make it executable, double-click) or `.deb` (`sudo apt install ./BLAM-*.deb`)
 
-> Every push to `main` automatically builds all three platforms with GitHub Actions and publishes them to the Release for the version in `package.json`. Bump the version to cut a new release.
+> Every push to `main` automatically builds all three platforms with GitHub Actions, launch-tests the packaged app and publishes a Release for the version in `package.json`, with notes taken from that version's section in [`CHANGELOG.md`](CHANGELOG.md). To cut a new release, bump `version` and add a changelog section. If the version's tag already exists at another commit, the build still runs but nothing is published, so a tag always matches its installers.
 
 ### Option 2 — Run from source
 Requires [Node.js 20+](https://nodejs.org).
@@ -70,6 +70,7 @@ Build your own installer:
 npm run dist:win     # Windows .exe
 npm run dist:mac     # macOS .dmg
 npm run dist:linux   # AppImage + .deb
+npm test             # offline unit tests (market-data fallbacks, CSV parsing)
 ```
 
 ## Getting started
