@@ -183,11 +183,19 @@
     S.on(U.debounce(() => B.rerender(), 30));
     window.addEventListener('hashchange', route);
     document.addEventListener('keydown', (e) => {
+      if (document.querySelector('.lock-screen')) return; // no shortcuts while locked
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); quickAdd(); }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r' && e.shiftKey) { e.preventDefault(); A.refreshPrices(); }
     });
     if (S.state.settings.pinHash) showLock();
     route();
+    if (S.loadProblem) {
+      UI.modal({
+        title: S.loadProblem.recovered ? 'Data restored from backup' : 'Your data could not be loaded',
+        body: `<div class="callout ${S.loadProblem.recovered ? 'info' : 'warn'}">${UI.icon('info')}<div>${U.esc(S.loadProblem.msg)}</div></div>
+          ${window.blam ? `<div class="page-a mt">${UI.btn('Open data folder', 'folder', { icon: 'report' })}</div>` : ''}`,
+      }).body.addEventListener('click', (e) => { if (e.target.closest('[data-act="folder"]')) window.blam.openDataFolder(); });
+    }
     A.start();
     setInterval(updateChrome, 30000);
     window.addEventListener('online', updateChrome);

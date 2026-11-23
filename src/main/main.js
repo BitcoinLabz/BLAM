@@ -37,7 +37,46 @@ function ensureDirs() {
 function atomicWrite(file, contents) {
   const tmp = `${file}.${process.pid}.tmp`;
   fs.writeFileSync(tmp, contents, 'utf8');
-  fs.renameSync(tmp, file);
+  // Windows: antivirus / indexers can briefly lock the target, making rename fail with EPERM/EBUSY.
+  for (let i = 0; ; i++) {
+    try { fs.renameSync(tmp, file); return; } catch (err) {
+      if (i >= 5 || !['EPERM', 'EBUSY', 'EACCES'].includes(err.code)) {
+        if (i >= 5) { fs.copyFileSync(tmp, file); fs.unlinkSync(tmp); return; }
+        throw err;
+      }
+      const until = Date.now() + 50 * (i + 1);
+      while (Date.now() < until) { /* brief synchronous back-off */ }
+    }
+  }
+}
+
+const isValidJson = (text) => { try { JSON.parse(text); return true; } catch (_) { return false; } };
+
+/** Backup files newest first (daily + safety copies). */
+function listBackups() {
+  return fs.readdirSync(backupDir())
+    .filter((f) => f.endsWith('.json'))
+    .map((f) => ({ f, t: fs.statSync(path.join(backupDir(), f)).mtimeMs }))
+    .sort((a, b) => b.t - a.t)
+    .map((x) => x.f);
+}
+
+/** Copy the current data file aside before a destructive action (erase / restore / demo). Keeps the last 10. */
+function safetyBackup(reason) {
+  try {
+    if (!fs.existsSync(dataFile())) return null;
+    const contents = fs.readFileSync(dataFile(), 'utf8');
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    const name = `blam-before-${String(reason || 'change').replace(/[^a-z]/gi, '').slice(0, 12)}-${todayStamp()}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.json`;
+    fs.writeFileSync(path.join(backupDir(), name), contents, 'utf8');
+    const extra = fs.readdirSync(backupDir()).filter((f) => f.startsWith('blam-before-')).sort();
+    while (extra.length > 10) fs.unlinkSync(path.join(backupDir(), extra.shift()));
+    return name;
+  } catch (err) {
+    console.error('[safety-backup]', err);
+    return null;
+  }
 }
 
 function todayStamp() {
@@ -162,9 +201,27 @@ function buildMenu() {
 function registerIpc() {
   ipcMain.handle('data:load', () => {
     ensureDirs();
-    if (!fs.existsSync(dataFile())) return null;
-    return fs.readFileSync(dataFile(), 'utf8');
+    if (!fs.existsSync(dataFile())) return { raw: null };
+    const raw = fs.readFileSync(dataFile(), 'utf8');
+    if (isValidJson(raw)) return { raw };
+    // Corrupt data file: never overwrite it. Keep a copy and fall back to the newest valid backup.
+    const kept = `blam-data.corrupt-${Date.now()}.json`;
+    try { fs.copyFileSync(dataFile(), path.join(dataDir(), kept)); } catch (err) { console.error('[load]', err); }
+    // Prefer the newest backup that actually holds data over an empty one (e.g. a copy taken before "Erase all").
+    let firstValid = null;
+    for (const f of listBackups()) {
+      const b = fs.readFileSync(path.join(backupDir(), f), 'utf8');
+      if (!isValidJson(b)) continue;
+      const d = JSON.parse(b);
+      const hasData = ['accounts', 'transactions', 'holdings', 'properties', 'loans', 'metals'].some((k) => Array.isArray(d[k]) && d[k].length);
+      if (hasData) return { raw: b, recoveredFrom: f, corruptCopy: kept };
+      if (!firstValid) firstValid = f;
+    }
+    if (firstValid) return { raw: fs.readFileSync(path.join(backupDir(), firstValid), 'utf8'), recoveredFrom: firstValid, corruptCopy: kept };
+    return { raw: null, corruptCopy: kept, unrecoverable: true };
   });
+
+  ipcMain.handle('data:safetyBackup', (_e, reason) => safetyBackup(reason));
 
   ipcMain.handle('data:save', (_e, json) => {
     ensureDirs();
@@ -177,7 +234,7 @@ function registerIpc() {
 
   ipcMain.handle('data:info', () => {
     ensureDirs();
-    const backups = fs.readdirSync(backupDir()).filter((f) => f.endsWith('.json')).sort().reverse();
+    const backups = listBackups();
     let size = 0;
     try { size = fs.statSync(dataFile()).size; } catch (_) { /* first run */ }
     return { dataFile: dataFile(), backupDir: backupDir(), backups, size, version: app.getVersion(), platform: process.platform };

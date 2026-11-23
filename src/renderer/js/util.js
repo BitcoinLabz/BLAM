@@ -154,6 +154,24 @@ window.BLAM = window.BLAM || {};
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   }).join(',')).join('\n');
 
+  /** Parse a bank-export amount: "$1,234.56", "(12.34)", "-$5", "12.34-", "12.34 CR", "−5,00 €". */
+  U.parseAmount = (v) => {
+    let s = String(v ?? '').trim().replace(/[\u2212\u2012\u2013]/g, '-');
+    if (!s) return 0;
+    let neg = false;
+    if (/^\(.*\)$/.test(s) || /^[^\d]*\(.*\)[^\d]*$/.test(s)) { neg = true; s = s.replace(/[()]/g, ''); }
+    if (/\s*(dr|db)\.?$/i.test(s)) { neg = true; s = s.replace(/\s*(dr|db)\.?$/i, ''); }
+    else if (/\s*cr\.?$/i.test(s)) s = s.replace(/\s*cr\.?$/i, '');
+    if (/-\s*$/.test(s)) { neg = true; s = s.replace(/-\s*$/, ''); }
+    if (/^[^\d]*-/.test(s)) { neg = !neg; s = s.replace('-', ''); }
+    s = s.replace(/[^\d.,]/g, '');
+    // "1.234,56" (EU) -> 1234.56 ; "1,234.56" -> 1234.56
+    if (/,\d{1,2}$/.test(s) && !/\.\d{1,2}$/.test(s)) s = s.replace(/\./g, '').replace(',', '.');
+    else s = s.replace(/,/g, '');
+    const n = parseFloat(s);
+    return Number.isFinite(n) ? (neg ? -n : n) : 0;
+  };
+
   /** Parse many common bank date formats into ISO. */
   U.parseAnyDate = (s) => {
     s = String(s || '').trim();

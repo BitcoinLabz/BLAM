@@ -15,7 +15,7 @@
     try { data = JSON.parse(f.content); } catch (e) { UI.toast('That file is not valid JSON', 'error'); return; }
     if (!data || !Array.isArray(data.accounts) || !data.settings) { UI.toast('That does not look like a BLAM backup', 'error'); return; }
     if (!(await UI.confirm(`Replace ALL current data with "${f.name}"? Export a backup first if unsure.`, { title: 'Restore backup', ok: 'Restore' }))) return;
-    await S.replaceAll(data);
+    await S.replaceAll(data, 'restore');
     UI.toast('Backup restored');
     B.go('dashboard');
   }
@@ -79,17 +79,17 @@
         export: exportJson,
         import: importJson,
         folder: () => window.blam.openDataFolder(),
-        demo: async () => { if (await UI.confirm('Replace all data with demo data?', { ok: 'Load demo' })) { await S.replaceAll(B.sampleData()); B.sampleBackfill(); B.go('dashboard'); B.A.refreshPrices({ quiet: true }); } },
+        demo: async () => { if (await UI.confirm('Replace all data with demo data?', { ok: 'Load demo' })) { await S.replaceAll(B.sampleData(), 'demo'); B.sampleBackfill(); B.go('dashboard'); B.A.refreshPrices({ quiet: true }); } },
         erase: async () => {
           if (!(await UI.confirm('This permanently deletes every account, transaction, holding and setting.', { title: 'Erase all data?', ok: 'Erase everything' }))) return;
-          await S.replaceAll(S.blank());
+          await S.replaceAll(S.blank(), 'erase');
           B.go('dashboard');
-          UI.toast('All data erased');
+          UI.toast(window.blam ? 'All data erased · a safety copy was saved in your backups folder' : 'All data erased');
         },
         restore: async (d) => {
           if (!(await UI.confirm(`Restore the automatic backup from ${d.name.replace(/\D+/g, ' ').trim()}? Current data will be replaced.`, { ok: 'Restore', title: 'Restore backup' }))) return;
           const raw = await window.blam.restoreBackup(d.name);
-          await S.replaceAll(JSON.parse(raw));
+          await S.replaceAll(JSON.parse(raw), 'restore');
           UI.toast('Backup restored'); B.go('dashboard');
         },
       });
@@ -99,7 +99,7 @@
         if (!di) return;
         di.innerHTML = `Data file: <code>${U.esc(info.dataFile)}</code> · ${(info.size / 1024).toFixed(1)} KB`;
         root.querySelector('#ver').textContent = `Version ${info.version} · ${info.platform} · Local-first personal finance · MIT licensed`;
-        root.querySelector('#backups').innerHTML = info.backups.length ? `<div class="muted" style="font-size:12px;margin-bottom:6px">Automatic daily backups</div><div class="chip-row">${info.backups.slice(0, 12).map((b) => `<span class="chip" data-act="restore" data-name="${U.esc(b)}">${U.esc(b.replace('blam-backup-', '').replace('.json', ''))}</span>`).join('')}</div>` : '';
+        root.querySelector('#backups').innerHTML = info.backups.length ? `<div class="muted" style="font-size:12px;margin-bottom:6px">Automatic backups — click to restore</div><div class="chip-row">${info.backups.slice(0, 12).map((b) => `<span class="chip" data-act="restore" data-name="${U.esc(b)}" title="${U.esc(b)}">${U.esc(b.startsWith('blam-before-') ? `before ${b.replace(/^blam-before-([a-z]+)-(\d{4}-\d{2}-\d{2})-(\d{2})(\d{2})\d{2}\.json$/i, '$1 · $2 $3:$4')}` : b.replace('blam-backup-', '').replace('.json', ''))}</span>`).join('')}</div>` : '';
       }
     },
   };

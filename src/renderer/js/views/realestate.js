@@ -41,7 +41,11 @@
       ],
       values: p || { type: 'rental', vacancyRate: 5, appreciation: 3, expenses: {} },
       onSave: (v) => { v.currentValue = U.num(v.currentValue); S.upsert('properties', v); UI.toast(isNew ? 'Property added' : 'Property saved'); },
-      onDelete: isNew ? null : () => S.remove('properties', p.id),
+      onDelete: isNew ? null : () => S.commit((s) => {
+        s.properties = s.properties.filter((x) => x.id !== p.id);
+        s.loans.forEach((l) => { if (l.propertyId === p.id) l.propertyId = ''; });
+        s.recurring.forEach((r) => { if (r.propertyId === p.id) r.propertyId = ''; });
+      }),
     });
   }
 

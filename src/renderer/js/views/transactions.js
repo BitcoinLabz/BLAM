@@ -50,9 +50,21 @@
   }
 
   // ------------------------------------------------------------------ CSV import
-  function guess(headers, patterns) {
-    const i = headers.findIndex((h) => patterns.some((p) => p.test(h)));
-    return i >= 0 ? String(i) : '';
+  /** First header matching the highest-priority pattern (patterns are tried in order). */
+  function guess(headers, patterns, exclude = []) {
+    for (const p of patterns) {
+      const i = headers.findIndex((h, k) => p.test(h) && !exclude.includes(String(k)));
+      if (i >= 0) return String(i);
+    }
+    return '';
+  }
+  /** A column whose every non-empty value is Debit/Credit (e.g. Capital One 360 "Transaction Type"). */
+  function guessSignCol(headers, data) {
+    for (let i = 0; i < headers.length; i++) {
+      const vals = data.map((r) => String(r[i] ?? '').trim().toLowerCase()).filter(Boolean);
+      if (vals.length && vals.every((v) => /^(debit|credit|dr|cr)$/.test(v))) return String(i);
+    }
+    return '';
   }
 
   async function importCsv(accountId) {
@@ -66,20 +78,31 @@
     const colOpts = [{ value: '', label: '— none —' }, ...headers.map((h, i) => ({ value: String(i), label: h || `Column ${i + 1}` }))];
     const map = {
       accountId: accountId || V.account || S.activeAccounts()[0].id,
-      date: guess(headers, [/^date$/i, /posted|post date|transaction date|date/i]),
-      payee: guess(headers, [/^description$/i, /payee|merchant|description|name|memo/i]),
-      amount: guess(headers, [/^amount$/i, /amount/i]),
-      debit: guess(headers, [/debit|withdraw/i]),
-      credit: guess(headers, [/credit|deposit/i]),
-      category: guess(headers, [/category/i]),
+      date: guess(headers, [/^date$/i, /^transaction date$/i, /^trans(action)?\.? date$/i, /^posting date$/i, /^post(ed)? date$/i, /timestamp/i, /date/i]),
+      payee: guess(headers, [/^description$/i, /^payee$/i, /^merchant( name)?$/i, /transaction description/i, /description/i, /payee|merchant|name/i, /memo/i]),
+      amount: guess(headers, [/native amount \(in usd\)/i, /^native amount$/i, /^amount$/i, /transaction amount/i, /amount/i]),
+      debit: guess(headers, [/^debit$/i, /debit|withdraw/i]),
+      credit: guess(headers, [/^credit$/i, /^credits?$|deposit/i]),
+      sign: guessSignCol(headers, data),
+      category: guess(headers, [/^category$/i, /category/i]),
       flip: false, skipDupes: true,
     };
     if (map.debit && map.credit) map.amount = map.amount === map.debit || map.amount === map.credit ? '' : map.amount;
+    // Amex (and some other card issuers) export charges as POSITIVE numbers. BLAM stores spending as negative.
+    const isAmex = headers.some((h) => /appears on your statement as|extended details/i.test(h)) || /amex|american express/i.test(file.name);
+    const looksPositiveSpend = () => {
+      if (map.amount === '' || map.sign) return false;
+      const acc = S.get('accounts', map.accountId);
+      const amts = data.map((r) => U.parseAmount(r[+map.amount])).filter((x) => x);
+      return acc && S.accountKind(acc) === 'credit' && amts.length >= 3 && amts.filter((x) => x > 0).length / amts.length > 0.6;
+    };
+    map.flip = isAmex || looksPositiveSpend();
+    const flipNote = () => (map.flip && (isAmex || looksPositiveSpend()) ? `<div class="callout info" style="margin-top:10px">${UI.icon('info')}<div>Signs flipped automatically: this file lists charges as positive amounts${isAmex ? ' (American Express format)' : ''}. Untick <b>Flip signs</b> if purchases show as income below.</div></div>` : '');
 
     const m = UI.modal({
       title: `Import ${file.name}`, xwide: true,
       body: `<div class="form-intro">Map the columns from your bank's CSV export. BLAM auto-categorizes using your rules and smart payee detection, and skips duplicates.</div>
-        <div class="mapping-grid" id="map"></div><div class="preview-tbl" id="prev"></div>`,
+        <div class="mapping-grid" id="map"></div><div id="flipnote"></div><div class="preview-tbl" id="prev"></div>`,
       footer: `<span class="muted" id="imp-count"></span><span class="grow"></span><button class="btn ghost" data-c>Cancel</button><button class="btn primary" data-go>Import</button>`,
     });
     const sel = (k, label, opts) => `<div class="field"><label>${label}</label><select data-m="${k}">${opts.map((o) => `<option value="${U.esc(o.value)}" ${String(map[k]) === String(o.value) ? 'selected' : ''}>${U.esc(o.label)}</option>`).join('')}</select></div>`;
@@ -87,8 +110,9 @@
       sel('accountId', 'Into account', accOptions()),
       sel('date', 'Date column', colOpts), sel('payee', 'Description column', colOpts),
       sel('amount', 'Amount column (signed)', colOpts), sel('debit', 'or Debit column', colOpts), sel('credit', 'or Credit column', colOpts),
+      sel('sign', 'Debit/Credit type column', colOpts),
       sel('category', 'Category column (optional)', colOpts),
-      `<div class="field"><label>Options</label><label class="switch"><input type="checkbox" data-m="flip"><span></span><em>Flip signs</em></label><label class="switch"><input type="checkbox" data-m="skipDupes" checked><span></span><em>Skip duplicates</em></label></div>`,
+      `<div class="field"><label>Options</label><label class="switch"><input type="checkbox" data-m="flip" ${map.flip ? 'checked' : ''}><span></span><em>Flip signs</em></label><label class="switch"><input type="checkbox" data-m="skipDupes" checked><span></span><em>Skip duplicates</em></label></div>`,
     ].join('');
 
     const parse = () => {
@@ -97,8 +121,13 @@
         const date = U.parseAnyDate(r[+map.date]);
         if (!date || map.date === '') continue;
         let amt = 0;
-        if (map.amount !== '') amt = U.num(String(r[+map.amount]).replace(/[()]/g, (c) => (c === '(' ? '-' : '')));
-        else amt = U.num(r[+map.credit]) - Math.abs(U.num(r[+map.debit]));
+        if (map.amount !== '') amt = U.parseAmount(r[+map.amount]);
+        else amt = Math.abs(U.parseAmount(r[+map.credit])) - Math.abs(U.parseAmount(r[+map.debit]));
+        if (map.sign !== '') {
+          const t = String(r[+map.sign] ?? '').trim().toLowerCase();
+          if (t === 'debit' || t === 'dr') amt = -Math.abs(amt);
+          else if (t === 'credit' || t === 'cr') amt = Math.abs(amt);
+        }
         if (map.flip) amt = -amt;
         if (!amt) continue;
         const payee = String(r[+map.payee] ?? '').replace(/\s+/g, ' ').trim() || 'Imported';
@@ -112,6 +141,7 @@
     const refresh = () => {
       const p = parse();
       const fresh = map.skipDupes ? p.filter((t) => !isDupe(t)) : p;
+      m.body.querySelector('#flipnote').innerHTML = flipNote();
       m.foot.querySelector('#imp-count').textContent = `${fresh.length} to import${p.length - fresh.length ? ` · ${p.length - fresh.length} duplicates skipped` : ''}`;
       m.body.querySelector('#prev').innerHTML = `<table class="tbl"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="r">Amount</th></tr></thead><tbody>${fresh.slice(0, 12).map((t) => `<tr><td>${U.fmtDate(t.date)}</td><td>${U.esc(t.payee)}</td><td>${t.category ? UI.tag(t.category) : '<span class="muted">auto</span>'}</td><td class="r">${U.mc(t.amount)}</td></tr>`).join('')}</tbody></table>`;
       return fresh;

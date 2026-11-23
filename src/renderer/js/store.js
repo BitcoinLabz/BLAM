@@ -103,12 +103,26 @@
   }
 
   // ---------------------------------------------------------------- persistence
+  /** Set when loading failed in a way where saving could destroy the user's data. */
+  S.loadProblem = null;
   S.load = async () => {
     let raw = null;
     try {
-      raw = window.blam ? await window.blam.load() : localStorage.getItem('blam-data');
-    } catch (e) { console.error(e); }
-    try { state = raw ? JSON.parse(raw) : null; } catch (e) { console.error('Corrupt data file', e); state = null; }
+      const res = window.blam ? await window.blam.load() : localStorage.getItem('blam-data');
+      if (res && typeof res === 'object') {
+        raw = res.raw;
+        if (res.recoveredFrom) S.loadProblem = { recovered: true, msg: `Your data file was damaged, so BLAM restored the backup "${res.recoveredFrom}". The damaged file was kept as ${res.corruptCopy}.` };
+        else if (res.unrecoverable) S.loadProblem = { readOnly: true, msg: `Your data file is damaged and no valid backup was found. It was kept as ${res.corruptCopy}. BLAM will not save until you restore a backup.` };
+      } else raw = res;
+    } catch (e) {
+      console.error(e);
+      S.loadProblem = { readOnly: true, msg: `BLAM could not read your data file (${e.message}). Saving is paused so nothing is overwritten — restart BLAM, or restore a backup in Settings.` };
+    }
+    try { state = raw ? JSON.parse(raw) : null; } catch (e) {
+      console.error('Corrupt data', e);
+      state = null;
+      if (raw) S.loadProblem = { readOnly: true, msg: 'Your saved data could not be read. Saving is paused so nothing is overwritten — restore a backup in Settings.' };
+    }
     state = migrate(state || S.blank());
     U.setCurrency(state.settings.currency);
     return state;
@@ -117,6 +131,7 @@
   let saveTimer = null, saving = Promise.resolve();
   S.saveNow = () => {
     clearTimeout(saveTimer);
+    if (S.loadProblem?.readOnly) return saving;
     const json = JSON.stringify(state);
     saving = saving.then(async () => {
       try {
@@ -128,7 +143,11 @@
   };
   S.save = () => { clearTimeout(saveTimer); saveTimer = setTimeout(S.saveNow, 300); };
 
-  S.replaceAll = async (obj) => {
+  /** Replace all data. `reason` (erase / restore / demo) keeps a safety copy of the current file first. */
+  S.replaceAll = async (obj, reason) => {
+    await saving;
+    if (reason && window.blam?.safetyBackup && !S.loadProblem?.readOnly) await window.blam.safetyBackup(reason);
+    if (S.loadProblem?.readOnly) S.loadProblem = null; // an explicit restore/erase is the user's decision
     state = migrate(obj);
     U.setCurrency(state.settings.currency);
     await S.saveNow();
@@ -214,10 +233,11 @@
 
   /** Auto-categorize from user rules then built-in keyword hints. */
   const HINTS = [
+    [/payment thank you|autopay payment|autopay pymt|card payment|payment - thank you|online payment.*thank/i, 'Credit Card Payment'],
     [/kroger|meijer|aldi|walmart grocery|whole foods|trader joe|costco|sam'?s club|publix|safeway|grocery/i, 'Groceries'],
     [/starbucks|dunkin|tim hortons|coffee|biggby/i, 'Coffee'],
     [/mcdonald|chipotle|wendy|taco bell|burger|pizza|doordash|uber ?eats|grubhub|restaurant|grill|cafe|subway/i, 'Dining Out'],
-    [/shell|bp |exxon|mobil|speedway|marathon|sunoco|chevron|citgo|circle k|fuel|gas station/i, 'Fuel'],
+    [/\bshell\b|\bbp |exxon|\bmobil\b|speedway|marathon|sunoco|chevron|citgo|circle k|fuel|gas station/i, 'Fuel'],
     [/netflix|spotify|hulu|disney|youtube|apple\.com|icloud|prime video|hbo|max\.com|patreon|chatgpt|openai|claude|anthropic/i, 'Subscriptions'],
     [/amazon|amzn|target|best buy|ebay|etsy|home depot|lowe'?s/i, 'Shopping'],
     [/dte|consumers energy|duke energy|electric|edison/i, 'Electric'],
@@ -226,12 +246,14 @@
     [/uber|lyft|parking|toll/i, 'Parking / Tolls'],
     [/payroll|direct dep|salary|paycheck|ups /i, 'Salary'],
     [/interest paid|interest earned/i, 'Interest'],
+    [/service fee|monthly fee|maintenance fee|overdraft|nsf fee|atm fee|foreign transaction fee|late fee/i, 'Bank Fees'],
     [/dividend/i, 'Dividends'],
     [/geico|progressive|state farm|allstate|liberty mutual/i, 'Auto Insurance'],
     [/planet fitness|gym|la fitness|crunch/i, 'Health & Fitness'],
     [/cvs|walgreens|pharmacy|rite aid/i, 'Medical'],
+    [/^(buy|sell) [a-z0-9]{2,10}$|crypto purchase/i, 'Investing'],
     [/coinbase|crypto\.com|kraken|robinhood|fidelity|schwab|vanguard|webull/i, 'Investing'],
-    [/payment thank you|autopay|card payment/i, 'Credit Card Payment'],
+    [/autopay/i, 'Credit Card Payment'],
     [/transfer|zelle|venmo/i, 'Transfer'],
   ];
   S.autoCategory = (payee) => {

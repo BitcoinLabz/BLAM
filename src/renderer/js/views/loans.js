@@ -175,7 +175,7 @@
       <div class="toolbar">
         <div class="seg" id="strat">${[['avalanche', 'Avalanche (highest rate first)'], ['snowball', 'Snowball (smallest balance first)']].map(([k, l]) => `<button data-s="${k}" class="${V.strategy === k ? 'on' : ''}">${l}</button>`).join('')}</div>
         <span class="muted" style="margin-left:10px">Extra per month</span>
-        <div class="inwrap has-pre" style="width:130px"><span class="adorn">$</span><input class="input" id="pl-extra" type="number" step="50" value="${V.extra}" style="padding-left:24px"></div>
+        <div class="inwrap has-pre" style="width:130px"><span class="adorn">$</span><input class="input" id="pl-extra" type="number" step="50" value="${V.extra}" style="padding-left:24px;min-width:0;width:100%"></div>
         <span class="muted">Total monthly budget: <b class="amt" style="color:var(--text)">${U.money(minBudget + V.extra, 0)}</b></span>
       </div>
       ${res.neverPaysOff ? `<div class="callout warn">${UI.icon('info')}<div>Your payments don't cover the interest on all debts. Increase the extra amount.</div></div>` : `

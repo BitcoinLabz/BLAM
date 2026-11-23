@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('blam', {
   info: () => ipcRenderer.invoke('data:info'),
   openDataFolder: () => ipcRenderer.invoke('data:openFolder'),
   restoreBackup: (name) => ipcRenderer.invoke('data:restoreBackup', name),
+  safetyBackup: (reason) => ipcRenderer.invoke('data:safetyBackup', reason),
   saveText: (opts) => ipcRenderer.invoke('file:saveText', opts),
   openText: (opts) => ipcRenderer.invoke('file:openText', opts),
   cryptoPrices: (ids) => ipcRenderer.invoke('prices:crypto', ids),

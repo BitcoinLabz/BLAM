@@ -17,7 +17,7 @@
     "dist:win": "electron-builder --win --publish never",
     "dist:mac": "electron-builder --mac --publish never",
     "dist:linux": "electron-builder --linux --publish never",
-    "test": "node test/market.test.js"
+    "test": "node test/market.test.js && node test/util.test.js"
   },
   "devDependencies": {
     "electron": "^37.2.0",

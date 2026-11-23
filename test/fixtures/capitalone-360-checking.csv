@@ -1,0 +1,4 @@
+Account Number,Transaction Description,Transaction Date,Transaction Type,Transaction Amount,Balance
+3600,Deposit from ACME CORP PAYROLL,11/15/26,Credit,2500.00,3100.00
+3600,Withdrawal to SAVINGS,11/16/26,Debit,400.00,2700.00
+3600,Debit Card Purchase - MEIJER 123,11/18/26,Debit,63.40,2636.60

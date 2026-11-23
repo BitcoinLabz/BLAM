@@ -33,7 +33,16 @@
       },
       onDelete: isNew ? null : () => {
         const n = S.state.transactions.filter((t) => t.accountId === a.id).length;
-        S.commit((s) => { s.accounts = s.accounts.filter((x) => x.id !== a.id); s.transactions = s.transactions.filter((t) => t.accountId !== a.id); });
+        S.commit((s) => {
+          s.accounts = s.accounts.filter((x) => x.id !== a.id);
+          s.transactions = s.transactions.filter((t) => t.accountId !== a.id);
+          // Don't leave automation or holdings pointing at an account that no longer exists.
+          s.recurring.forEach((r) => {
+            if (r.accountId === a.id) { r.accountId = ''; r.autoPost = false; }
+            if (r.toAccountId === a.id) r.toAccountId = '';
+          });
+          s.holdings.forEach((h) => { if (h.accountId === a.id) h.accountId = ''; });
+        });
         UI.toast(`Deleted account${n ? ` and ${n} transactions` : ''}`);
       },
     });

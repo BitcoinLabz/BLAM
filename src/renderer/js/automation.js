@@ -63,7 +63,7 @@
     const today = U.today();
     const posted = [];
     for (const r of s.recurring) {
-      if (!r.autoPost || r.paused || !r.nextDate || !r.accountId) continue;
+      if (!r.autoPost || r.paused || !r.nextDate || !r.accountId || !s.accounts.some((a) => a.id === r.accountId)) continue;
       let guard = 0;
       while (r.nextDate <= today && guard++ < 120) {
         if (r.endDate && r.nextDate > r.endDate) { r.paused = true; break; }
