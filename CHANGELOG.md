@@ -13,6 +13,7 @@ Each `## x.y.z` section becomes the GitHub Release notes for that version.
 - Removed the optional SimpleFIN bank sync, which needed a paid third-party subscription. Use **Bank Import** (OFX / QFX / QBO / CSV) instead: it's free and works with virtually every bank.
 - Any SimpleFIN access key saved by 1.1.x is deleted from disk on first launch. Accounts and transactions you already synced are kept.
 
+## 1.2.0
 
 **Free bank import, with no subscription**
 - **Import bank file** now reads OFX, QFX and QBO, the free "Download for Quicken / QuickBooks" file that virtually every US bank, credit union and card offers. CSV still works too.
@@ -21,6 +22,7 @@ Each `## x.y.z` section becomes the GitHub Release notes for that version.
 - Balances can be set to exactly what the bank reports in the file.
 - The **Bank Import & Sync** screen leads with the free import. Automatic sync through SimpleFIN is now clearly marked as an optional third-party service that charges its own fee; BLAM never requires it.
 
+## 1.1.0
 
 **Automatic bank & card sync (SimpleFIN)**
 - New **Bank Sync** screen: paste a SimpleFIN Bridge setup token and BLAM pulls in your checking, savings, credit cards, brokerages and loans, with balances and transactions.
@@ -31,6 +33,7 @@ Each `## x.y.z` section becomes the GitHub Release notes for that version.
 - The access key is encrypted with your OS keychain (Keychain, Windows DPAPI, GNOME Keyring / KWallet). It is never written to your data file or backups, and the app's screens never see it. Disconnect deletes it.
 - Banks & Cards shows a **synced** badge on linked accounts, plus a one-click Connect / Sync button.
 
+## 1.0.1
 
 **Live market data**
 - Fixed the 24h change for every stock, ETF and metal. It was measured against the close five trading days ago instead of yesterday's close (VOO showed −8.3% on a −3.4% day).
