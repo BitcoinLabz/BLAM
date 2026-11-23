@@ -108,7 +108,7 @@
       ? '<th>Card</th><th class="r">Owed</th><th style="width:22%">Utilization</th><th class="r">APR</th><th class="r">Interest / mo</th><th class="r">Due</th><th></th>'
       : `<th>Account</th><th>Type</th>${kind === 'cash' ? '<th class="r">APY</th><th class="r">Interest / mo</th>' : ''}<th class="r">Balance</th><th></th>`;
     const rows = list.map((a) => {
-      const name = `<div class="asset-cell"><div class="asset-ic" style="background:${a.color || '#64748b'}">${UI.icon(kind === 'credit' ? 'card' : 'bank', 16)}</div><div><b>${U.esc(a.name)}</b>${S.state.syncLinks.some((l) => l.target === 'account' && l.targetId === a.id) ? ` <span class="tag" style="--tc:#14b8a6" title="Balance and transactions sync from your bank${a.balanceSyncedAt ? ` · as of ${U.esc(U.fmtDate(a.balanceSyncedAt))}` : ''}">synced</span>` : ''}<div class="sub">${U.esc(a.institution || '')}${a.last4 ? ` ···· ${U.esc(a.last4)}` : ''}</div></div></div>`;
+      const name = `<div class="asset-cell"><div class="asset-ic" style="background:${a.color || '#64748b'}">${UI.icon(kind === 'credit' ? 'card' : 'bank', 16)}</div><div><b>${U.esc(a.name)}</b>${a.balanceSyncedAt ? ` <span class="tag" style="--tc:#14b8a6" title="Balance set from your bank's download file">bank ${U.esc(U.fmtDate(a.balanceSyncedAt, { month: 'short', day: 'numeric' }))}</span>` : ''}<div class="sub">${U.esc(a.institution || '')}${a.last4 ? ` ···· ${U.esc(a.last4)}` : ''}</div></div></div>`;
       const acts = `<td class="r"><div class="row-actions"><button class="icon-btn" data-act="rec" data-id="${a.id}" title="Update balance">${UI.icon('check', 15)}</button><button class="icon-btn" data-act="edit" data-id="${a.id}" title="Edit">${UI.icon('edit', 15)}</button></div></td>`;
       if (kind === 'credit') {
         const util = U.num(a.creditLimit) ? U.num(a.balance) / U.num(a.creditLimit) : 0;
@@ -144,7 +144,7 @@
       const earned = U.sum(cash, (a) => U.num(a.balance) * U.num(a.apy) / 100 / 12);
 
       root.innerHTML = `
-        ${UI.pageHead('Banks & Cards', 'Every checking, savings, credit card and investment account in one place.', `${S.state.settings.bankSyncConnected ? UI.btn('Sync banks', 'banksync', { icon: 'refresh' }) : ''}${UI.btn('Import bank file', 'import', { icon: 'upload' })}${UI.btn('Add account', 'add', { icon: 'plus', kind: 'primary' })}`)}
+        ${UI.pageHead('Banks & Cards', 'Every checking, savings, credit card and investment account in one place.', `${UI.btn('Import bank file', 'import', { icon: 'upload' })}${UI.btn('Add account', 'add', { icon: 'plus', kind: 'primary' })}`)}
         ${acc.length ? `
         <div class="grid g4">
           ${UI.kpi({ label: 'Cash & savings', icon: 'bank', accent: '#2ecf8f', value: U.m(U.sum(cash, (a) => a.balance), 0), sub: earned ? `Earning ≈ ${U.m(earned)}/mo interest` : `${cash.length} accounts` })}
@@ -161,7 +161,6 @@
       UI.bind(root, {
         add: () => edit(null),
         import: () => B.views.transactions.importCsv(),
-        banksync: () => { if (S.state.settings.bankSyncConnected) B.Sync.run(); else B.go('banksync'); },
         edit: (d) => edit(S.get('accounts', d.id)),
         rec: (d) => reconcile(S.get('accounts', d.id)),
         open: (d, el, e) => { if (!e.target.closest('.row-actions')) detail(S.get('accounts', d.id)); },

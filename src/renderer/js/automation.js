@@ -275,7 +275,6 @@
       S.snapshot();
       A.remind();
     }
-    if (B.Sync) B.Sync.tick();
     const mins = U.num(s.settings.autoRefreshMinutes);
     if (mins > 0 && s.holdings.length + s.metals.length > 0) {
       const last = s.settings.lastPriceRefresh ? new Date(s.settings.lastPriceRefresh).getTime() : 0;

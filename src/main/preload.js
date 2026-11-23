@@ -19,10 +19,6 @@ contextBridge.exposeInMainWorld('blam', {
   quotes: (symbols) => ipcRenderer.invoke('prices:quotes', symbols),
   dividends: (symbol, years) => ipcRenderer.invoke('prices:dividends', symbol, years),
   cryptoSearch: (q) => ipcRenderer.invoke('crypto:search', q),
-  syncStatus: () => ipcRenderer.invoke('sync:status'),
-  syncConnect: (token, opts) => ipcRenderer.invoke('sync:connect', token, opts),
-  syncFetch: (opts) => ipcRenderer.invoke('sync:fetch', opts),
-  syncDisconnect: () => ipcRenderer.invoke('sync:disconnect'),
   notify: (title, body) => ipcRenderer.invoke('notify', { title, body }),
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
 });

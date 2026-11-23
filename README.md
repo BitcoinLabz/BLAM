@@ -11,7 +11,7 @@ Crypto · Stocks · ETFs · Dividends · Real Estate · Rentals · Mortgages · 
 
 ## Why BLAM
 
-Most finance apps want your bank password and live in someone else's cloud. BLAM runs **entirely on your computer**. No account, no subscription, no telemetry. The only network calls are anonymous price lookups for your tickers and, only if you turn on Bank Sync, a read-only connection to SimpleFIN.
+Most finance apps want your bank password and live in someone else's cloud. BLAM runs **entirely on your computer**. No account, no subscription, no telemetry. The only network calls are anonymous price lookups for your tickers.
 
 ## Features
 
@@ -23,7 +23,6 @@ Most finance apps want your bank password and live in someone else's cloud. BLAM
 | **Real Estate** | Equity, LTV, NOI, cap rate, cash-on-cash, DSCR, GRM, 1% rule, 10-year equity projection, multi-unit tenants & lease expiration alerts |
 | **Loans & Payoff** | Full amortization schedules, payoff date charts, extra-payment & lump-sum **what-if simulator**, refinance test, interest saved, CSV export, **avalanche vs. snowball** planner across every loan and credit card |
 | **Banks & Cards** | Checking, savings, HYSA, CDs, credit cards, 401(k)/IRA, HSA, exchanges. Credit utilization, interest cost, APY earnings, reconcile balances |
-| **Bank Sync (optional, paid third party)** | BLAM is free and the bank-file import above costs nothing. If you'd rather not download files, BLAM can optionally connect to [SimpleFIN Bridge](https://bridge.simplefin.org), a separate service that charges about $15/year, for fully automatic sync. Read-only, duplicate-safe, access key kept in your OS keychain |
 | **Transactions** | Fast ledger, search & filters, bulk re-categorize, **free bank-file import**: OFX / QFX / QBO (your bank's "Download for Quicken/QuickBooks") with exact duplicate detection and balance matching, or CSV from any bank with column mapping, plus smart auto-categorization |
 | **Budget & Spending** | Monthly budgets by category, auto-budget from your 3-month average, spending pace vs. budget, 12-month trend by group |
 | **Bills & Recurring** | Paychecks, bills, subscriptions, transfers and **self-amortizing loan payments** that auto-post on schedule |
@@ -124,7 +123,7 @@ Everything is stored in one JSON file in your OS app-data folder:
 | macOS | `~/Library/Application Support/BLAM/blam-data.json` |
 | Linux | `~/.config/BLAM/blam-data.json` |
 
-Daily backups live in the `backups/` folder next to it. If you use Bank Sync, its access key is stored separately in `simplefin.credential`, encrypted with your OS keychain. It is never included in your data file or backups. Settings → **Export backup** saves a portable copy you can restore on any machine.
+Daily backups live in the `backups/` folder next to it. Settings → **Export backup** saves a portable copy you can restore on any machine.
 
 ## Architecture
 
@@ -133,7 +132,6 @@ src/
 ├─ main/
 │  ├─ main.js        Electron main: window, atomic JSON persistence, backups, dialogs, IPC
 │  ├─ market.js      Prices & dividends with Yahoo → Nasdaq → CoinGecko fallbacks
-│  ├─ simplefin.js   SimpleFIN protocol client + safeStorage credential store
 │  └─ preload.js     Narrow contextBridge API (no Node in the renderer)
 └─ renderer/
    ├─ index.html     Shell + strict Content-Security-Policy
@@ -145,7 +143,6 @@ src/
       ├─ charts.js       Zero-dependency SVG charts (line/area, bar, donut, sparkline) with tooltips
       ├─ ui.js           Icons, modals, schema-driven forms, toasts
       ├─ automation.js   Recurring engine, loan autopay, live prices, dividend sync, reminders
-      ├─ banksync.js     SimpleFIN account linking, duplicate-safe import, balance reconcile
       ├─ sample.js       Demo dataset
       ├─ app.js          Router & app shell
       └─ views/          One module per screen

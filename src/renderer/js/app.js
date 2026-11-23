@@ -10,7 +10,7 @@
     { id: 'reports', label: 'Net Worth & Reports', icon: 'networth' },
     { g: 'Cash Flow' },
     { id: 'accounts', label: 'Banks & Cards', icon: 'bank' },
-    { id: 'banksync', label: 'Bank Import & Sync', icon: 'refresh' },
+    { id: 'bankimport', label: 'Bank Import', icon: 'upload' },
     { id: 'transactions', label: 'Transactions', icon: 'list' },
     { id: 'budget', label: 'Budget & Spending', icon: 'budget' },
     { id: 'recurring', label: 'Bills & Recurring', icon: 'repeat' },
