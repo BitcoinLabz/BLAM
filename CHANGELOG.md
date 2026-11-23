@@ -29,6 +29,7 @@ Each `## x.y.z` section becomes the GitHub Release notes for that version.
 - Quick add (Ctrl/⌘+K) can no longer open on top of the PIN lock screen.
 - Debt planner layout at small window sizes.
 - The release tag now always points at the commit the installers were built from.
+- Release builds are ready for Windows and macOS code signing and notarization; signing turns on automatically once the certificates are added.
 
 ## 1.0.0
 
