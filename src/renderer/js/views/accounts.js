@@ -87,7 +87,7 @@
       </div>
       <div class="card mt"><div class="card-b"><div id="acc-flow"></div></div></div>
       <div class="card mt flush"><div class="card-b tbl-wrap" style="max-height:360px;overflow:auto">${tx.length ? `<table class="tbl"><thead><tr><th>Date</th><th>Payee</th><th>Category</th><th class="r">Amount</th></tr></thead><tbody>${tx.slice(0, 300).map((t) => `<tr><td class="nowrap">${U.fmtDate(t.date)}</td><td>${U.esc(t.payee)}${t.note ? `<div class="sub">${U.esc(t.note)}</div>` : ''}</td><td>${UI.tag(t.category || 'Uncategorized')}</td><td class="r">${U.mc(t.amount)}</td></tr>`).join('')}</tbody></table>` : UI.empty('list', 'No transactions', 'Add or import transactions for this account.')}</div></div>`,
-      footer: `<button class="btn" data-x="rec">${UI.icon('check', 15)} Update balance</button><button class="btn" data-x="add">${UI.icon('plus', 15)} Transaction</button><button class="btn" data-x="imp">${UI.icon('upload', 15)} Import CSV</button><span class="grow"></span><button class="btn ghost" data-x="edit">${UI.icon('edit', 15)} Edit account</button>`,
+      footer: `<button class="btn" data-x="rec">${UI.icon('check', 15)} Update balance</button><button class="btn" data-x="add">${UI.icon('plus', 15)} Transaction</button><button class="btn" data-x="imp">${UI.icon('upload', 15)} Import bank file</button><span class="grow"></span><button class="btn ghost" data-x="edit">${UI.icon('edit', 15)} Edit account</button>`,
     });
     Ch.bar(m.body.querySelector('#acc-flow'), { labels: months.map(U.monthShort), series: [{ name: 'In', color: '#2ecf8f', values: flows.map((f) => f.income) }, { name: 'Out', color: '#f45b72', values: flows.map((f) => f.expense) }], height: 180 });
     m.foot.addEventListener('click', (e) => {
@@ -144,7 +144,7 @@
       const earned = U.sum(cash, (a) => U.num(a.balance) * U.num(a.apy) / 100 / 12);
 
       root.innerHTML = `
-        ${UI.pageHead('Banks & Cards', 'Every checking, savings, credit card and investment account in one place.', `${UI.btn(S.state.settings.bankSyncConnected ? 'Sync banks' : 'Connect banks', 'banksync', { icon: 'refresh' })}${UI.btn('Import CSV', 'import', { icon: 'upload' })}${UI.btn('Add account', 'add', { icon: 'plus', kind: 'primary' })}`)}
+        ${UI.pageHead('Banks & Cards', 'Every checking, savings, credit card and investment account in one place.', `${S.state.settings.bankSyncConnected ? UI.btn('Sync banks', 'banksync', { icon: 'refresh' }) : ''}${UI.btn('Import bank file', 'import', { icon: 'upload' })}${UI.btn('Add account', 'add', { icon: 'plus', kind: 'primary' })}`)}
         ${acc.length ? `
         <div class="grid g4">
           ${UI.kpi({ label: 'Cash & savings', icon: 'bank', accent: '#2ecf8f', value: U.m(U.sum(cash, (a) => a.balance), 0), sub: earned ? `Earning ≈ ${U.m(earned)}/mo interest` : `${cash.length} accounts` })}
@@ -156,7 +156,7 @@
         ${credit.length ? `<div class="mt">${UI.card({ title: 'Credit cards', sub: 'Keep utilization under 30% for the best credit score impact', cls: 'flush', body: table(credit, 'credit') })}</div>` : ''}
         ${inv.length ? `<div class="mt">${UI.card({ title: 'Investment & retirement accounts', sub: 'Balances you track manually (cash or total value). Individual positions live in Crypto & Stocks.', cls: 'flush', body: table(inv, 'invest') })}</div>` : ''}
         ${archived.length ? `<p class="muted mt">${archived.length} archived account${archived.length > 1 ? 's' : ''}: ${archived.map((a) => `<a href="#" data-act="edit" data-id="${a.id}">${U.esc(a.name)}</a>`).join(', ')}</p>` : ''}
-        ` : UI.card({ body: UI.empty('bank', 'Add your first account', 'Connect your banks to pull in every account automatically, or add checking, savings, credit cards, 401(k)s and exchanges by hand.', `${UI.btn('Connect banks', 'banksync', { icon: 'refresh' })} ${UI.btn('Add account', 'add', { icon: 'plus', kind: 'primary' })}`) })}`;
+        ` : UI.card({ body: UI.empty('bank', 'Add your first account', 'Add checking, savings, credit cards, 401(k)s and exchanges, or import your bank\'s free download file (OFX / QFX / QBO / CSV). BLAM can create the account for you.', `${UI.btn('Import bank file', 'import', { icon: 'upload' })} ${UI.btn('Add account', 'add', { icon: 'plus', kind: 'primary' })}`) })}`;
 
       UI.bind(root, {
         add: () => edit(null),

@@ -67,10 +67,102 @@
     return '';
   }
 
+  // ------------------------------------------------------------------ OFX / QFX / QBO import
+  /** Match an OFX statement to a BLAM account: last-4 digits, previous imports from the same account, then type. */
+  function guessOfxAccount(st, fallback) {
+    const acc = S.activeAccounts();
+    const last4 = st.acctId.replace(/\D/g, '').slice(-4);
+    const prior = S.state.transactions.find((t) => t.extId && t.extId.startsWith(`ofx:${st.acctId}:`));
+    return (prior && acc.find((a) => a.id === prior.accountId)?.id)
+      || (last4 && acc.find((a) => String(a.last4 || '') === last4)?.id)
+      || fallback
+      || (st.credit ? acc.find((a) => S.accountKind(a) === 'credit') : acc.find((a) => S.accountKind(a) === 'cash'))?.id
+      || acc[0]?.id;
+  }
+
+  function importOfx(file, statements, accountId) {
+    if (!statements.length) { UI.toast('No bank statements found in that file', 'error'); return; }
+    const plan = statements.map((st) => ({ st, accountId: guessOfxAccount(st, statements.length === 1 ? accountId || V.account : ''), balance: st.balance != null }));
+    const label = (st) => `${st.credit ? 'Credit card' : (st.acctType || 'Bank').toLowerCase().replace(/^\w/, (c) => c.toUpperCase())} ···· ${U.esc(st.acctId.replace(/\D/g, '').slice(-4) || st.acctId)}${st.org ? ` · ${U.esc(st.org)}` : ''}`;
+    const known = () => new Set(S.state.transactions.filter((t) => t.extId).map((t) => t.extId));
+    const twinOf = (t, accId, claimed) => S.state.transactions.find((x) => !x.extId && !claimed.has(x.id) && x.accountId === accId && Math.abs(U.num(x.amount) - t.amount) < 0.005 && Math.abs(U.daysBetween(x.date, t.date)) <= 3);
+    const preview = () => {
+      const k = known();
+      return plan.map((p) => {
+        const claimed = new Set();
+        let fresh = 0, dupes = 0, adopt = 0;
+        for (const t of p.st.transactions) {
+          if (k.has(`ofx:${p.st.acctId}:${t.fitid}`)) dupes++;
+          else { const tw = twinOf(t, p.accountId, claimed); if (tw) { claimed.add(tw.id); adopt++; } else fresh++; }
+        }
+        return { fresh, dupes, adopt };
+      });
+    };
+    const m = UI.modal({
+      title: `Import ${file.name}`, xwide: true,
+      body: `<div class="form-intro">Bank download (OFX / QFX / QBO). Each transaction carries a unique bank ID, so importing the same or an overlapping file again never creates duplicates, and the account balance can be set to exactly what the bank reports.</div><div id="ofx-plan"></div>`,
+      footer: `<span class="muted" id="ofx-count"></span><span class="grow"></span><button class="btn ghost" data-c>Cancel</button><button class="btn primary" data-go>Import</button>`,
+    });
+    const render = () => {
+      const pv = preview();
+      m.body.querySelector('#ofx-plan').innerHTML = plan.map((p, i) => `<div class="card mt"><div class="card-b">
+        <div class="mapping-grid">
+          <div class="field"><label>Statement</label><div style="padding:9px 0"><b>${label(p.st)}</b><div class="sub">${p.st.transactions.length} transactions${p.st.transactions.length ? ` · ${U.fmtDate(p.st.transactions.reduce((a, t) => (t.date < a ? t.date : a), p.st.transactions[0].date))} – ${U.fmtDate(p.st.transactions.reduce((a, t) => (t.date > a ? t.date : a), p.st.transactions[0].date))}` : ''}</div></div></div>
+          <div class="field"><label>Into account</label><select data-acc="${i}">${S.activeAccounts().map((a) => `<option value="${a.id}" ${a.id === p.accountId ? 'selected' : ''}>${U.esc(a.name)}</option>`).join('')}<option value="__new">+ New account from this statement</option></select></div>
+          ${p.st.balance != null ? `<div class="field"><label>Balance</label><label class="switch"><input type="checkbox" data-bal="${i}" ${p.balance ? 'checked' : ''}><span></span><em>Set to bank balance ${U.money(p.st.credit ? -p.st.balance : p.st.balance)}${p.st.balanceDate ? ` (${U.fmtDate(p.st.balanceDate, { month: 'short', day: 'numeric' })})` : ''}</em></label></div>` : ''}
+        </div>
+        <p class="muted" style="margin:8px 0 0">${pv[i].fresh} new${pv[i].adopt ? ` · ${pv[i].adopt} already in BLAM (will be matched, not duplicated)` : ''}${pv[i].dupes ? ` · ${pv[i].dupes} already imported` : ''}</p>
+      </div></div>`).join('');
+      const tot = pv.reduce((a, x) => a + x.fresh, 0);
+      m.foot.querySelector('#ofx-count').textContent = `${tot} new transaction${tot === 1 ? '' : 's'} to import`;
+    };
+    m.body.addEventListener('change', (e) => {
+      const i = e.target.dataset.acc ?? e.target.dataset.bal;
+      if (i == null) return;
+      const p = plan[+i];
+      if (e.target.dataset.bal != null) { p.balance = e.target.checked; return; }
+      if (e.target.value === '__new') {
+        const st = p.st;
+        const acc = S.upsert('accounts', { name: `${st.org || (st.credit ? 'Credit card' : 'Bank')} ${st.credit ? 'card' : (st.acctType || 'account').toLowerCase()} ${st.acctId.replace(/\D/g, '').slice(-4)}`.trim(), type: st.credit ? 'credit' : /SAVINGS/.test(st.acctType) ? 'savings' : /MONEYMRKT/.test(st.acctType) ? 'money_market' : 'checking', last4: st.acctId.replace(/\D/g, '').slice(-4), institution: st.org, balance: 0 }, { silent: true });
+        p.accountId = acc.id;
+      } else p.accountId = e.target.value;
+      render();
+    });
+    render();
+    m.foot.querySelector('[data-c]').onclick = m.close;
+    m.foot.querySelector('[data-go]').onclick = () => {
+      let added = 0, matched = 0;
+      S.commit((s) => {
+        for (const p of plan) {
+          const k = known();
+          const claimed = new Set();
+          const acc = s.accounts.find((a) => a.id === p.accountId);
+          if (!acc) continue;
+          if (p.st.acctId.replace(/\D/g, '').length >= 4 && !acc.last4) acc.last4 = p.st.acctId.replace(/\D/g, '').slice(-4);
+          for (const t of [...p.st.transactions].sort((a, b) => a.date.localeCompare(b.date))) {
+            const extId = `ofx:${p.st.acctId}:${t.fitid}`;
+            if (k.has(extId)) continue;
+            const tw = twinOf(t, acc.id, claimed);
+            if (tw) { tw.extId = extId; claimed.add(tw.id); matched++; continue; }
+            S.addTransaction({ date: t.date, accountId: acc.id, payee: t.payee, amount: t.amount, note: [t.memo, t.checkNum ? `Check #${t.checkNum}` : ''].filter(Boolean).join(' · '), extId, imported: true }, { silent: true });
+            k.add(extId);
+            added++;
+          }
+          if (p.balance && p.st.balance != null) { acc.balance = U.round(S.accountKind(acc) === 'credit' ? -p.st.balance : p.st.balance); acc.balanceSyncedAt = p.st.balanceDate || U.today(); }
+        }
+      });
+      S.log(`Imported ${added} transactions from ${file.name}${matched ? ` (${matched} matched to existing)` : ''}`, 'info');
+      UI.toast(`Imported ${added} transaction${added === 1 ? '' : 's'}${matched ? ` · ${matched} matched` : ''}`);
+      m.close();
+    };
+  }
+
   async function importCsv(accountId) {
     if (!S.activeAccounts().length) { UI.toast('Add an account first', 'warn'); return; }
-    const file = await U.openFile('.csv,.txt');
+    const file = await U.openFile('.csv,.ofx,.qfx,.qbo,.txt');
     if (!file) return;
+    const statements = U.parseOfx(file.content);
+    if (statements) return importOfx(file, statements, accountId);
     const rows = U.csvParse(file.content);
     if (rows.length < 2) { UI.toast('That file has no rows', 'error'); return; }
     const headers = rows[0].map((h) => h.trim());
@@ -197,7 +289,7 @@
       V.selected = new Set([...V.selected].filter((id) => list.some((t) => t.id === id)));
 
       root.innerHTML = `
-        ${UI.pageHead('Transactions', 'Every dollar in and out across all banks and cards.', `${UI.btn('Export', 'export', { icon: 'download' })}${UI.btn('Import CSV', 'import', { icon: 'upload' })}${UI.btn('Add transaction', 'add', { icon: 'plus', kind: 'primary' })}`)}
+        ${UI.pageHead('Transactions', 'Every dollar in and out across all banks and cards.', `${UI.btn('Export', 'export', { icon: 'download' })}${UI.btn('Import bank file', 'import', { icon: 'upload' })}${UI.btn('Add transaction', 'add', { icon: 'plus', kind: 'primary' })}`)}
         <div class="toolbar">
           <div class="month-nav"><button class="icon-btn" data-act="prev">${UI.icon('chevl', 16)}</button><b>${V.month ? U.monthLabel(V.month, true) : 'All time'}</b><button class="icon-btn" data-act="next">${UI.icon('chevr', 16)}</button></div>
           <button class="btn sm ${V.month ? 'ghost' : ''}" data-act="all">All time</button>
@@ -226,7 +318,7 @@
               <td class="r"><div class="row-actions"><button class="icon-btn" data-act="del" data-id="${t.id}">${UI.icon('trash', 14)}</button></div></td></tr>`;
           }).join('')}</tbody></table>
           ${list.length > V.limit ? `<div style="text-align:center;padding:14px"><button class="btn" data-act="more">Show more (${list.length - V.limit} remaining)</button></div>` : ''}`
-          : UI.empty('list', 'No transactions here', 'Add one manually, import a CSV export from your bank, or set up recurring items to auto-post.', `${UI.btn('Import CSV', 'import', { icon: 'upload' })} ${UI.btn('Add transaction', 'add', { icon: 'plus', kind: 'primary' })}`)}
+          : UI.empty('list', 'No transactions here', 'Add one manually, import your bank\'s download (OFX, QFX, QBO or CSV), or set up recurring items to auto-post.', `${UI.btn('Import bank file', 'import', { icon: 'upload' })} ${UI.btn('Add transaction', 'add', { icon: 'plus', kind: 'primary' })}`)}
         </div></div>`;
 
       const rer = () => B.rerender();

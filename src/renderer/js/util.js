@@ -172,6 +172,58 @@ window.BLAM = window.BLAM || {};
     return Number.isFinite(n) ? (neg ? -n : n) : 0;
   };
 
+  /**
+   * Parse an OFX / QFX / QBO file (the free "Download for Quicken / QuickBooks" export every US bank offers).
+   * Handles OFX 1.x SGML (unclosed tags) and OFX 2.x XML. Returns one entry per statement in the file.
+   */
+  U.parseOfx = (text) => {
+    const src = String(text || '');
+    if (!/<OFX>/i.test(src)) return null;
+    const body = src.slice(src.search(/<OFX>/i));
+    const tag = (block, name) => {
+      const m = block.match(new RegExp(`<${name}>([^<\\r\\n]*)`, 'i'));
+      return m ? m[1].trim().replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&apos;|&#39;/g, "'").replace(/&quot;/g, '"') : '';
+    };
+    const ofxDate = (v) => { const m = String(v).match(/^(\d{4})(\d{2})(\d{2})/); return m ? `${m[1]}-${m[2]}-${m[3]}` : null; };
+    const blocks = (str, name) => {
+      const out = [];
+      const re = new RegExp(`<${name}>([\\s\\S]*?)(?=<\\/${name}>|<${name}>|$)`, 'gi');
+      let m;
+      while ((m = re.exec(str))) out.push(m[1]);
+      return out;
+    };
+    const statements = [];
+    for (const kind of ['STMTRS', 'CCSTMTRS']) {
+      for (const st of blocks(body, kind)) {
+        const credit = kind === 'CCSTMTRS';
+        const from = credit ? (blocks(st, 'CCACCTFROM')[0] || '') : (blocks(st, 'BANKACCTFROM')[0] || '');
+        const ledger = blocks(st, 'LEDGERBAL')[0] || '';
+        const list = blocks(st, 'BANKTRANLIST')[0] || st;
+        const txns = blocks(list, 'STMTTRN').map((t) => {
+          const name = tag(t, 'NAME') || tag(t, 'PAYEE') || tag(t, 'MEMO') || 'Bank transaction';
+          const memo = tag(t, 'MEMO');
+          return {
+            fitid: tag(t, 'FITID'), type: tag(t, 'TRNTYPE'),
+            date: ofxDate(tag(t, 'DTPOSTED') || tag(t, 'DTUSER')),
+            amount: U.parseAmount(tag(t, 'TRNAMT')),
+            payee: name.replace(/\s+/g, ' ').trim(),
+            memo: memo && memo !== name ? memo.replace(/\s+/g, ' ').trim() : '',
+            checkNum: tag(t, 'CHECKNUM'),
+          };
+        }).filter((t) => t.date && t.amount);
+        const balRaw = tag(ledger, 'BALAMT');
+        statements.push({
+          credit,
+          acctId: tag(from, 'ACCTID'), acctType: credit ? 'CREDITCARD' : tag(from, 'ACCTTYPE'), bankId: tag(from, 'BANKID'),
+          org: tag(body, 'ORG'), currency: tag(st, 'CURDEF') || 'USD',
+          balance: balRaw !== '' ? U.parseAmount(balRaw) : null, balanceDate: ofxDate(tag(ledger, 'DTASOF')),
+          transactions: txns,
+        });
+      }
+    }
+    return statements;
+  };
+
   /** Parse many common bank date formats into ISO. */
   U.parseAnyDate = (s) => {
     s = String(s || '').trim();

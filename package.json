@@ -1,7 +1,7 @@
 {
   "name": "blam",
   "productName": "BLAM",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "BLAM — Bitcoin Labz Asset Manager. A private, local-first desktop command center for your entire financial life: crypto, stocks, ETFs, dividends, real estate, rentals, loans, metals, passive income, budgets and spending.",
   "main": "src/main/main.js",
   "author": {

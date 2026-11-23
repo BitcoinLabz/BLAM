@@ -2,7 +2,15 @@
 
 Each `## x.y.z` section becomes the GitHub Release notes for that version.
 
-## 1.1.0
+## 1.2.0
+
+**Free bank import, with no subscription**
+- **Import bank file** now reads OFX, QFX and QBO, the free "Download for Quicken / QuickBooks" file that virtually every US bank, credit union and card offers. CSV still works too.
+- Each transaction's unique bank ID is kept, so re-importing the same or an overlapping download never creates duplicates. Transactions you already entered or imported from CSV are matched instead of added again.
+- The right account is picked automatically by its last 4 digits (or where that account's file went last time). You can also create the account straight from the file.
+- Balances can be set to exactly what the bank reports in the file.
+- The **Bank Import & Sync** screen leads with the free import. Automatic sync through SimpleFIN is now clearly marked as an optional third-party service that charges its own fee; BLAM never requires it.
+
 
 **Automatic bank & card sync (SimpleFIN)**
 - New **Bank Sync** screen: paste a SimpleFIN Bridge setup token and BLAM pulls in your checking, savings, credit cards, brokerages and loans, with balances and transactions.

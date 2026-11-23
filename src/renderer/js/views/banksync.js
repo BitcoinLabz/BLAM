@@ -17,14 +17,33 @@
     ].join('');
   }
 
+  /** The free path: every US bank offers a "Download for Quicken / QuickBooks" file. */
+  function freeCard() {
+    const last = S.state.transactions.filter((t) => t.extId && t.extId.startsWith('ofx:')).length;
+    return UI.card({
+      title: 'Free: import your bank\'s download file',
+      sub: 'Works with virtually every US bank, credit union and card. No subscription, no third party, no passwords shared.',
+      actions: `<span class="tag" style="--tc:#2ecf8f">Free</span>`,
+      body: `
+        <ol class="steps">
+          <li>Sign in to your bank's website and open <b>Download transactions</b> / <b>Export</b> (often under Statements or Activity).</li>
+          <li>Choose <b>Quicken (QFX)</b>, <b>QuickBooks (QBO)</b> or <b>OFX</b>. CSV works too but can't set balances or detect duplicates as precisely.</li>
+          <li>Click <b>Import bank file</b> below. BLAM finds the right account by its last 4 digits, skips anything already imported, and sets the balance to what the bank reports.</li>
+        </ol>
+        <p class="muted" style="margin:10px 0 0">Tip: download once a week or month. Overlapping date ranges are fine, because duplicates are skipped automatically.${last ? ` ${last.toLocaleString()} transactions imported from bank files so far.` : ''}</p>
+        <div class="page-a mt">${UI.btn('Import bank file', 'importfile', { icon: 'upload', kind: 'primary' })}</div>`,
+    });
+  }
+
   function connectCard(st) {
     const insecure = B.Sync.status && B.Sync.status.keychain === false;
     return UI.card({
-      title: 'Connect your banks',
-      sub: 'Automatic balances and transactions from thousands of US banks, credit unions, credit cards and brokerages via SimpleFIN Bridge',
+      title: 'Optional: fully automatic sync (paid third-party service)',
+      sub: 'If you prefer not to download files, SimpleFIN Bridge can fetch balances and transactions automatically. It is not part of BLAM and charges about $15/year. Skip this to keep BLAM 100% free.',
+      actions: `<span class="tag" style="--tc:#f5b942">Paid · optional</span>`,
       body: `
         <ol class="steps">
-          <li><b>Create a SimpleFIN Bridge account</b> at <a href="#" data-act="ext" data-url="https://bridge.simplefin.org/">bridge.simplefin.org</a> (about $15/year, paid to SimpleFIN — BLAM stays free) and connect your banks there.</li>
+          <li><b>Create a SimpleFIN Bridge account</b> at <a href="#" data-act="ext" data-url="https://bridge.simplefin.org/">bridge.simplefin.org</a> (about $15/year, paid to SimpleFIN) and connect your banks there.</li>
           <li>In your SimpleFIN account, create a new app connection and copy its <b>setup token</b>.</li>
           <li>Paste it below. BLAM claims it once, saves the resulting access key in your computer's secure keychain, and pulls in your accounts.</li>
         </ol>
@@ -46,12 +65,13 @@
       const nameOf = (l) => (l.target === 'loan' ? S.get('loans', l.targetId)?.name : S.get('accounts', l.targetId)?.name) || '';
 
       if (!window.blam?.syncFetch) {
-        root.innerHTML = `${UI.pageHead('Bank Sync', 'Automatic bank & card syncing')}${UI.card({ body: UI.empty('bank', 'Desktop app required', 'Bank sync runs in the BLAM desktop app so your credentials stay in the OS keychain.') })}`;
+        root.innerHTML = `${UI.pageHead('Bank Import & Sync', 'Bring in balances and transactions from every bank and card.')}${freeCard()}`;
+        UI.bind(root, { importfile: () => B.views.transactions.importCsv() });
         return;
       }
 
       root.innerHTML = `
-        ${UI.pageHead('Bank Sync', 'Every bank, card and brokerage balance — updated automatically.', connected ? `${UI.btn('Sync now', 'sync', { icon: 'refresh', kind: 'primary' })}` : '')}
+        ${UI.pageHead('Bank Import & Sync', 'Bring in balances and transactions from every bank and card.', connected ? `${UI.btn('Import bank file', 'importfile', { icon: 'upload' })}${UI.btn('Sync now', 'sync', { icon: 'refresh', kind: 'primary' })}` : '')}
         ${connected ? `
         <div class="grid g4">
           ${UI.kpi({ label: 'Status', icon: 'bolt', accent: r && !r.ok ? '#f45b72' : '#2ecf8f', value: r && !r.ok ? 'Needs attention' : 'Connected', sub: `<span id="sf-host">SimpleFIN</span>` })}
@@ -83,7 +103,7 @@
             <div class="li"><div class="li-ic">${UI.icon('x')}</div><div class="li-m"><div class="li-t">Disconnect</div><div class="li-s">Deletes the access key. Synced accounts and transactions stay in BLAM.</div></div><button class="btn danger" data-act="disconnect">Disconnect</button></div>
           </div>` })}
         </div>
-        <div id="sf-reconnect"></div>` : connectCard(st)}`;
+        <div id="sf-reconnect"></div>` : `${freeCard()}<div class="mt">${connectCard(st)}</div>`}`;
 
       const bindConnect = (host) => {
         const btn = host.querySelector('[data-act="connect"]');
@@ -121,6 +141,7 @@
 
       UI.bind(root, {
         sync: () => B.Sync.run(),
+        importfile: () => B.views.transactions.importCsv(),
         ext: (d) => window.blam.openExternal(d.url),
         reconnect: () => { const h = root.querySelector('#sf-reconnect'); h.innerHTML = `<div class="mt">${connectCard({})}</div>`; bindConnect(h); h.querySelector('#sf-token').focus(); },
         disconnect: async () => {
