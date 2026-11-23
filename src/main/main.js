@@ -16,6 +16,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell, Notification, Menu } = requi
 const path = require('path');
 const fs = require('fs');
 const { cryptoPrices, cryptoSearch, quotes, dividendHistory } = require('./market');
+const updater = require('./updater');
 
 const APP_NAME = 'BLAM';
 let mainWindow = null;
@@ -279,6 +280,13 @@ function registerIpc() {
   ipcMain.handle('crypto:search', (_e, q) => cryptoSearch(q));
 
 
+  // Auto-updates (GitHub Releases)
+  ipcMain.handle('update:state', () => updater.getState());
+  ipcMain.handle('update:check', () => updater.check());
+  ipcMain.handle('update:install', () => updater.install());
+  ipcMain.handle('update:setAuto', (_e, on) => updater.setAuto(on));
+  ipcMain.handle('update:openReleases', () => shell.openExternal(updater.RELEASES_URL));
+
   ipcMain.handle('notify', (_e, { title, body }) => {
     if (Notification.isSupported()) new Notification({ title: title || APP_NAME, body: body || '' }).show();
     return true;
@@ -309,6 +317,9 @@ if (!app.requestSingleInstanceLock()) {
     registerIpc();
     buildMenu();
     createWindow();
+    if (!process.env.BLAM_SMOKE) {
+      updater.init({ onStatus: (st) => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('update:status', st); } });
+    }
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });

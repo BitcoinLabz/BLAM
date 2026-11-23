@@ -179,7 +179,24 @@
       privacy: () => { S.setting('privacy', !S.state.settings.privacy); updateChrome(); },
       lock: showLock,
       quickadd: quickAdd,
+      update: () => window.blam?.updateInstall(),
     });
+    // Auto-updates: reflect status from the main process.
+    if (window.blam?.onUpdateStatus) {
+      let announced = null;
+      const onUpdate = (st) => {
+        B.updateState = st;
+        const btn = tb.querySelector('[data-act="update"]');
+        btn.hidden = st.status !== 'ready';
+        if (st.status === 'ready') {
+          btn.innerHTML = `${UI.icon('download', 14)}<span>Update to ${U.esc(st.available?.version || 'new version')}</span>`;
+          if (announced !== st.available?.version) { announced = st.available?.version; UI.toast(`BLAM ${st.available?.version || ''} is ready. Click "Update" in the top bar to restart.`, 'ok', 8000); }
+        }
+        if (location.hash.startsWith('#/settings')) B.views.settings.updateCard?.(st);
+      };
+      window.blam.onUpdateStatus(onUpdate);
+      window.blam.updateSetAuto(S.state.settings.autoUpdate !== false).then(onUpdate).catch(() => {});
+    }
     // re-render active view whenever state changes (debounced)
     S.on(U.debounce(() => B.rerender(), 30));
     window.addEventListener('hashchange', route);

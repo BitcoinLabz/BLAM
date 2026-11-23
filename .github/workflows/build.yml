@@ -106,8 +106,11 @@ jobs:
           path: |
             dist/*.exe
             dist/*.dmg
+            dist/*.zip
             dist/*.AppImage
             dist/*.deb
+            dist/*.blockmap
+            dist/latest*.yml
           if-no-files-found: error
 
   release:
@@ -150,6 +153,8 @@ jobs:
             echo "- **Linux:** \`.AppImage\` (any distro) or \`.deb\` (Ubuntu/Debian)"
             echo
             echo "Windows SmartScreen may say \"Windows protected your PC\" because the app isn't code-signed yet — click **More info → Run anyway**."
+            echo
+            echo "Already have BLAM installed? The Windows installer and Linux AppImage update themselves automatically. You can also use Settings → Updates."
             echo
             echo "All data stays on your computer. See the README for details."
           } > body.md

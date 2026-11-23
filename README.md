@@ -11,7 +11,7 @@ Crypto · Stocks · ETFs · Dividends · Real Estate · Rentals · Mortgages · 
 
 ## Why BLAM
 
-Most finance apps want your bank password and live in someone else's cloud. BLAM runs **entirely on your computer**. No account, no subscription, no telemetry. The only network calls are anonymous price lookups for your tickers.
+Most finance apps want your bank password and live in someone else's cloud. BLAM runs **entirely on your computer**. No account, no subscription, no telemetry. The only network calls are anonymous price lookups for your tickers and update checks against this repo's GitHub Releases, which you can turn off in Settings.
 
 ## Features
 
@@ -51,6 +51,8 @@ Go to **[Releases → Latest](https://github.com/BitcoinLabz/BLAM/releases/lates
   - If Windows SmartScreen appears, click **More info → Run anyway** (the app isn't code-signed yet).
 - **macOS (Intel & Apple Silicon):** `BLAM-x.x.x-mac-universal.dmg` — drag BLAM to Applications, then the first time **right-click → Open**.
 - **Linux:** `.AppImage` (make it executable, double-click) or `.deb` (`sudo apt install ./BLAM-*.deb`)
+
+**Automatic updates:** the Windows installer and the Linux AppImage update themselves. BLAM checks GitHub Releases when it opens and every 6 hours, downloads new versions in the background, and installs them when you restart (or click **Update** in the top bar). You can turn this off, or check manually, under Settings → Updates. The portable `.exe` and the `.deb` can't self-update, so download those again from Releases. macOS updates itself once builds are code-signed; until then, download the new `.dmg`.
 
 > Every push to `main` automatically builds all three platforms with GitHub Actions, launch-tests the packaged app and publishes a Release for the version in `package.json`, with notes taken from that version's section in [`CHANGELOG.md`](CHANGELOG.md). To cut a new release, bump `version` and add a changelog section. If the version's tag already exists at another commit, the build still runs but nothing is published, so a tag always matches its installers.
 
@@ -132,6 +134,7 @@ src/
 ├─ main/
 │  ├─ main.js        Electron main: window, atomic JSON persistence, backups, dialogs, IPC
 │  ├─ market.js      Prices & dividends with Yahoo → Nasdaq → CoinGecko fallbacks
+│  ├─ updater.js     Auto-updates from GitHub Releases (electron-updater)
 │  └─ preload.js     Narrow contextBridge API (no Node in the renderer)
 └─ renderer/
    ├─ index.html     Shell + strict Content-Security-Policy
@@ -148,7 +151,7 @@ src/
       └─ views/          One module per screen
 ```
 
-Zero runtime dependencies — just Electron. Security defaults: `contextIsolation`, `sandbox`, no `nodeIntegration`, CSP-restricted network, external links open in your browser.
+One runtime dependency besides Electron: `electron-updater`, for auto-updates. Security defaults: `contextIsolation`, `sandbox`, no `nodeIntegration`, CSP-restricted network, external links open in your browser.
 
 ## Disclaimer
 

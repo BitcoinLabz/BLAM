@@ -19,6 +19,12 @@ contextBridge.exposeInMainWorld('blam', {
   quotes: (symbols) => ipcRenderer.invoke('prices:quotes', symbols),
   dividends: (symbol, years) => ipcRenderer.invoke('prices:dividends', symbol, years),
   cryptoSearch: (q) => ipcRenderer.invoke('crypto:search', q),
+  updateState: () => ipcRenderer.invoke('update:state'),
+  updateCheck: () => ipcRenderer.invoke('update:check'),
+  updateInstall: () => ipcRenderer.invoke('update:install'),
+  updateSetAuto: (on) => ipcRenderer.invoke('update:setAuto', on),
+  openReleases: () => ipcRenderer.invoke('update:openReleases'),
+  onUpdateStatus: (cb) => { const h = (_e, st) => cb(st); ipcRenderer.on('update:status', h); return () => ipcRenderer.removeListener('update:status', h); },
   notify: (title, body) => ipcRenderer.invoke('notify', { title, body }),
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
 });

@@ -2,7 +2,17 @@
 
 Each `## x.y.z` section becomes the GitHub Release notes for that version.
 
-## 1.2.0
+## 1.3.0
+
+**Automatic updates**
+- BLAM now updates itself from GitHub Releases. It checks when it opens and every 6 hours, downloads in the background, and installs when you restart. An **Update** button appears in the top bar when a new version is ready.
+- New **Settings → Updates** card: current version, **Check for updates**, **Restart & update**, and a switch to turn automatic checks off.
+- Works with the Windows installer and the Linux AppImage. The portable `.exe` and the `.deb` show a link to the releases page instead. macOS will update itself once builds are code-signed.
+
+**100% free**
+- Removed the optional SimpleFIN bank sync, which needed a paid third-party subscription. Use **Bank Import** (OFX / QFX / QBO / CSV) instead: it's free and works with virtually every bank.
+- Any SimpleFIN access key saved by 1.1.x is deleted from disk on first launch. Accounts and transactions you already synced are kept.
+
 
 **Free bank import, with no subscription**
 - **Import bank file** now reads OFX, QFX and QBO, the free "Download for Quicken / QuickBooks" file that virtually every US bank, credit union and card offers. CSV still works too.

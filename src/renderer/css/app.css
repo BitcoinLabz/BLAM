@@ -1,4 +1,5 @@
 /* BLAM — design system */
+[hidden] { display: none !important; }
 :root {
   color-scheme: dark; /* native controls (number spinners, date pickers, scrollbars) match the theme */
   --bg: #07090f;

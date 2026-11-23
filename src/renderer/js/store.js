@@ -85,7 +85,7 @@
     settings: {
       currency: 'USD', userName: '', autoRefreshMinutes: 15, autoPostRecurring: true, notifications: true,
       reminderDays: 7, privacy: false, pinHash: null, lastPriceRefresh: null, lastReminderDate: null,
-      onboarded: false, expectedReturn: 7, safeWithdrawalRate: 4,
+      onboarded: false, expectedReturn: 7, safeWithdrawalRate: 4, autoUpdate: true,
     },
     accounts: [], transactions: [], categories: S.defaultCategories(), rules: [],
     holdings: [], dividends: [], properties: [], loans: [], metals: [],
