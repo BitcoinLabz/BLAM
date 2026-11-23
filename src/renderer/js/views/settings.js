@@ -51,7 +51,7 @@
           ${UI.card({ title: 'Security & privacy', body: `<div class="list">
             <div class="li"><div class="li-ic">${UI.icon('lock')}</div><div class="li-m"><div class="li-t">PIN lock</div><div class="li-s">${st.pinHash ? 'Enabled — required at launch' : 'Off'}</div></div>${st.pinHash ? UI.btn('Remove', 'rmPin', { kind: 'ghost' }) : ''}${UI.btn(st.pinHash ? 'Change' : 'Set PIN', 'pin')}</div>
             <div class="li"><div class="li-ic">${UI.icon('eyeoff')}</div><div class="li-m"><div class="li-t">Privacy mode</div><div class="li-s">Blurs every dollar amount (hover to reveal). Toggle anytime from the top bar.</div></div><label class="switch"><input type="checkbox" id="priv" ${st.privacy ? 'checked' : ''}><span></span></label></div>
-            <div class="li"><div class="li-ic">${UI.icon('info')}</div><div class="li-m"><div class="li-t">100% local</div><div class="li-s">No accounts, no cloud, no telemetry. The only network calls are anonymous price lookups.</div></div></div>
+            <div class="li"><div class="li-ic">${UI.icon('info')}</div><div class="li-m"><div class="li-t">100% local</div><div class="li-s">No accounts, no cloud, no telemetry. The only network calls are anonymous price lookups and, if you turn it on, read-only Bank Sync via SimpleFIN.</div></div></div>
           </div>` })}
         </div>
         <div class="grid g2 mt">
@@ -60,7 +60,7 @@
             <div id="backups" class="mt"></div>` })}
           ${UI.card({ title: 'Danger zone', body: `<div class="list">
             <div class="li"><div class="li-m"><div class="li-t">Load demo data</div><div class="li-s">Replaces everything with a realistic sample portfolio</div></div>${UI.btn('Load demo', 'demo')}</div>
-            <div class="li"><div class="li-m"><div class="li-t">Erase everything</div><div class="li-s">Permanently deletes all data in BLAM (backups are kept)</div></div><button class="btn danger" data-act="erase">${UI.icon('trash', 15)} Erase</button></div>
+            <div class="li"><div class="li-m"><div class="li-t">Erase everything</div><div class="li-s">Permanently deletes all data in BLAM and disconnects Bank Sync (backups are kept)</div></div><button class="btn danger" data-act="erase">${UI.icon('trash', 15)} Erase</button></div>
           </div>` })}
         </div>
         <div class="mt">${UI.card({ body: `<div style="display:flex;align-items:center;gap:16px"><div class="brand-mark">B</div><div><b style="font-size:16px;letter-spacing:2px">BLAM</b> <span class="muted">· Bitcoin Labz Asset Manager</span><div class="muted" style="font-size:12.5px;margin-top:3px" id="ver">Local-first personal finance · MIT licensed · github.com/BitcoinLabz/BLAM</div></div></div>` })}</div>`;
@@ -82,6 +82,7 @@
         demo: async () => { if (await UI.confirm('Replace all data with demo data?', { ok: 'Load demo' })) { await S.replaceAll(B.sampleData(), 'demo'); B.sampleBackfill(); B.go('dashboard'); B.A.refreshPrices({ quiet: true }); } },
         erase: async () => {
           if (!(await UI.confirm('This permanently deletes every account, transaction, holding and setting.', { title: 'Erase all data?', ok: 'Erase everything' }))) return;
+          if (window.blam?.syncDisconnect) await window.blam.syncDisconnect(); // a clean slate must not re-sync the bank
           await S.replaceAll(S.blank(), 'erase');
           B.go('dashboard');
           UI.toast(window.blam ? 'All data erased · a safety copy was saved in your backups folder' : 'All data erased');

@@ -5,7 +5,7 @@
   const S = {};
   let state = null;
   const listeners = new Set();
-  const SCHEMA_VERSION = 1;
+  const SCHEMA_VERSION = 2;
 
   // ---------------------------------------------------------------- constants
   S.ACCOUNT_TYPES = {
@@ -86,15 +86,19 @@
       currency: 'USD', userName: '', autoRefreshMinutes: 15, autoPostRecurring: true, notifications: true,
       reminderDays: 7, privacy: false, pinHash: null, lastPriceRefresh: null, lastReminderDate: null,
       onboarded: false, expectedReturn: 7, safeWithdrawalRate: 4,
+      bankSyncConnected: false, bankSyncHours: 6, bankSyncDays: 45, lastBankSync: null, lastBankSyncResult: null,
     },
     accounts: [], transactions: [], categories: S.defaultCategories(), rules: [],
     holdings: [], dividends: [], properties: [], loans: [], metals: [],
     metalPrices: { gold: 0, silver: 0, platinum: 0, palladium: 0, copper: 0, updated: null },
     passive: [], otherAssets: [], recurring: [], goals: [], snapshots: [], log: [],
+    syncLinks: [], // v2: SimpleFIN remote account -> BLAM account / loan
   });
 
+  /** Bring any saved data up to the current schema. Only ever adds; never drops user data. */
   function migrate(s) {
     const b = S.blank();
+    // v1 -> v2: bank sync (syncLinks + settings.bankSync*) — filled from defaults below.
     for (const k of Object.keys(b)) if (s[k] === undefined) s[k] = b[k];
     s.settings = { ...b.settings, ...s.settings };
     s.metalPrices = { ...b.metalPrices, ...s.metalPrices };

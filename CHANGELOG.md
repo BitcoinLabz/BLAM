@@ -2,7 +2,17 @@
 
 Each `## x.y.z` section becomes the GitHub Release notes for that version.
 
-## 1.0.1
+## 1.1.0
+
+**Automatic bank & card sync (SimpleFIN)**
+- New **Bank Sync** screen: paste a SimpleFIN Bridge setup token and BLAM pulls in your checking, savings, credit cards, brokerages and loans, with balances and transactions.
+- Each bank account is linked automatically: to an existing BLAM account with the same name, or to a new one created with the right type (credit card, savings, 401(k), loan…). You can relink any account, or stop syncing it, at any time.
+- Balances match what your bank reports. Loan accounts update the loan balance. Transactions are categorized with your rules.
+- No duplicates: transactions are matched by their bank ID, and transactions you already entered or imported from CSV are recognised instead of added again.
+- Syncs automatically every 6 hours while BLAM is open (adjustable), and imports 30, 45 or 90 days of history for newly linked accounts.
+- The access key is encrypted with your OS keychain (Keychain, Windows DPAPI, GNOME Keyring / KWallet). It is never written to your data file or backups, and the app's screens never see it. Disconnect deletes it.
+- Banks & Cards shows a **synced** badge on linked accounts, plus a one-click Connect / Sync button.
+
 
 **Live market data**
 - Fixed the 24h change for every stock, ETF and metal. It was measured against the close five trading days ago instead of yesterday's close (VOO showed −8.3% on a −3.4% day).

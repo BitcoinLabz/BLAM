@@ -345,3 +345,11 @@ body.privacy .amt:hover { filter: none; }
   .muted, .kpi-l, .stat-row span:first-child { color: #555 !important; }
   .amt { filter: none !important; }
 }
+
+/* Bank sync */
+.steps { margin: 0; padding-left: 20px; color: var(--text2); font-size: 13.5px; line-height: 1.6; }
+.steps li { margin-bottom: 6px; }
+.steps a, .callout a { color: var(--accent2); }
+.warn-t { color: var(--warn); }
+.field textarea#sf-token { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+body.syncing [data-act="sync"] .ic, body.syncing [data-act="banksync"] .ic { animation: spin 1s linear infinite; }

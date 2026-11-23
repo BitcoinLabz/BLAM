@@ -108,7 +108,7 @@
       ? '<th>Card</th><th class="r">Owed</th><th style="width:22%">Utilization</th><th class="r">APR</th><th class="r">Interest / mo</th><th class="r">Due</th><th></th>'
       : `<th>Account</th><th>Type</th>${kind === 'cash' ? '<th class="r">APY</th><th class="r">Interest / mo</th>' : ''}<th class="r">Balance</th><th></th>`;
     const rows = list.map((a) => {
-      const name = `<div class="asset-cell"><div class="asset-ic" style="background:${a.color || '#64748b'}">${UI.icon(kind === 'credit' ? 'card' : 'bank', 16)}</div><div><b>${U.esc(a.name)}</b><div class="sub">${U.esc(a.institution || '')}${a.last4 ? ` ···· ${U.esc(a.last4)}` : ''}</div></div></div>`;
+      const name = `<div class="asset-cell"><div class="asset-ic" style="background:${a.color || '#64748b'}">${UI.icon(kind === 'credit' ? 'card' : 'bank', 16)}</div><div><b>${U.esc(a.name)}</b>${S.state.syncLinks.some((l) => l.target === 'account' && l.targetId === a.id) ? ` <span class="tag" style="--tc:#14b8a6" title="Balance and transactions sync from your bank${a.balanceSyncedAt ? ` · as of ${U.esc(U.fmtDate(a.balanceSyncedAt))}` : ''}">synced</span>` : ''}<div class="sub">${U.esc(a.institution || '')}${a.last4 ? ` ···· ${U.esc(a.last4)}` : ''}</div></div></div>`;
       const acts = `<td class="r"><div class="row-actions"><button class="icon-btn" data-act="rec" data-id="${a.id}" title="Update balance">${UI.icon('check', 15)}</button><button class="icon-btn" data-act="edit" data-id="${a.id}" title="Edit">${UI.icon('edit', 15)}</button></div></td>`;
       if (kind === 'credit') {
         const util = U.num(a.creditLimit) ? U.num(a.balance) / U.num(a.creditLimit) : 0;
@@ -144,7 +144,7 @@
       const earned = U.sum(cash, (a) => U.num(a.balance) * U.num(a.apy) / 100 / 12);
 
       root.innerHTML = `
-        ${UI.pageHead('Banks & Cards', 'Every checking, savings, credit card and investment account in one place.', `${UI.btn('Import CSV', 'import', { icon: 'upload' })}${UI.btn('Add account', 'add', { icon: 'plus', kind: 'primary' })}`)}
+        ${UI.pageHead('Banks & Cards', 'Every checking, savings, credit card and investment account in one place.', `${UI.btn(S.state.settings.bankSyncConnected ? 'Sync banks' : 'Connect banks', 'banksync', { icon: 'refresh' })}${UI.btn('Import CSV', 'import', { icon: 'upload' })}${UI.btn('Add account', 'add', { icon: 'plus', kind: 'primary' })}`)}
         ${acc.length ? `
         <div class="grid g4">
           ${UI.kpi({ label: 'Cash & savings', icon: 'bank', accent: '#2ecf8f', value: U.m(U.sum(cash, (a) => a.balance), 0), sub: earned ? `Earning ≈ ${U.m(earned)}/mo interest` : `${cash.length} accounts` })}
@@ -156,11 +156,12 @@
         ${credit.length ? `<div class="mt">${UI.card({ title: 'Credit cards', sub: 'Keep utilization under 30% for the best credit score impact', cls: 'flush', body: table(credit, 'credit') })}</div>` : ''}
         ${inv.length ? `<div class="mt">${UI.card({ title: 'Investment & retirement accounts', sub: 'Balances you track manually (cash or total value). Individual positions live in Crypto & Stocks.', cls: 'flush', body: table(inv, 'invest') })}</div>` : ''}
         ${archived.length ? `<p class="muted mt">${archived.length} archived account${archived.length > 1 ? 's' : ''}: ${archived.map((a) => `<a href="#" data-act="edit" data-id="${a.id}">${U.esc(a.name)}</a>`).join(', ')}</p>` : ''}
-        ` : UI.card({ body: UI.empty('bank', 'Add your first account', 'Add checking, savings, credit cards, 401(k)s and exchanges. Balances update automatically as you add or import transactions.', UI.btn('Add account', 'add', { icon: 'plus', kind: 'primary' })) })}`;
+        ` : UI.card({ body: UI.empty('bank', 'Add your first account', 'Connect your banks to pull in every account automatically, or add checking, savings, credit cards, 401(k)s and exchanges by hand.', `${UI.btn('Connect banks', 'banksync', { icon: 'refresh' })} ${UI.btn('Add account', 'add', { icon: 'plus', kind: 'primary' })}`) })}`;
 
       UI.bind(root, {
         add: () => edit(null),
         import: () => B.views.transactions.importCsv(),
+        banksync: () => { if (S.state.settings.bankSyncConnected) B.Sync.run(); else B.go('banksync'); },
         edit: (d) => edit(S.get('accounts', d.id)),
         rec: (d) => reconcile(S.get('accounts', d.id)),
         open: (d, el, e) => { if (!e.target.closest('.row-actions')) detail(S.get('accounts', d.id)); },

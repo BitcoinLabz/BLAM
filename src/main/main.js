@@ -12,10 +12,11 @@
  */
 'use strict';
 
-const { app, BrowserWindow, ipcMain, dialog, shell, Notification, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Notification, Menu, safeStorage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { cryptoPrices, cryptoSearch, quotes, dividendHistory } = require('./market');
+const simplefin = require('./simplefin');
 
 const APP_NAME = 'BLAM';
 let mainWindow = null;
@@ -272,6 +273,30 @@ function registerIpc() {
   ipcMain.handle('prices:quotes', (_e, symbols) => quotes(symbols));
   ipcMain.handle('prices:dividends', (_e, symbol, years) => dividendHistory(symbol, years));
   ipcMain.handle('crypto:search', (_e, q) => cryptoSearch(q));
+
+  // Bank sync (SimpleFIN). The access URL never crosses into the renderer.
+  const sfStore = simplefin.createStore({ safeStorage, dir: dataDir });
+  const sfErr = (e) => ({ ok: false, error: String(e.message || e), code: e.code || 'error' });
+  ipcMain.handle('sync:status', () => sfStore.status());
+  ipcMain.handle('sync:connect', async (_e, token, opts = {}) => {
+    try {
+      const t = simplefin.parseToken(token);
+      // Check storage BEFORE claiming: a setup token can only be claimed once.
+      if (!safeStorage.isEncryptionAvailable() && !opts.allowPlain) throw new simplefin.SimpleFinError('No OS keychain is available on this computer (on Linux, install GNOME Keyring or KWallet).', 'no_secure_storage');
+      const access = t.kind === 'claim' ? await simplefin.claim(t.url) : t.url;
+      const probe = await simplefin.fetchAccounts(access, { balancesOnly: true }); // verify before saving
+      sfStore.save(access, { allowPlain: !!opts.allowPlain });
+      return { ok: true, ...sfStore.status(), accounts: probe.accounts.map((a) => ({ id: a.id, name: a.name, org: a.org, balance: a.balance, currency: a.currency })), errors: probe.errors };
+    } catch (e) { return sfErr(e); }
+  });
+  ipcMain.handle('sync:fetch', async (_e, opts = {}) => {
+    try {
+      const access = sfStore.load();
+      if (!access) return { ok: false, error: 'Bank sync is not connected', code: 'not_connected' };
+      return { ok: true, ...(opts.balancesOnly ? await simplefin.fetchAccounts(access, { balancesOnly: true }) : await simplefin.fetchSince(access, opts.startDate)) };
+    } catch (e) { return sfErr(e); }
+  });
+  ipcMain.handle('sync:disconnect', () => { sfStore.clear(); return { ok: true }; });
 
   ipcMain.handle('notify', (_e, { title, body }) => {
     if (Notification.isSupported()) new Notification({ title: title || APP_NAME, body: body || '' }).show();
