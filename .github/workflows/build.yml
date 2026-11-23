@@ -29,11 +29,56 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Unit tests
         run: npm test
+      # Code signing is automatic when the certificate secrets exist and skipped when they don't.
+      # Per-OS secrets (MAC_CSC_LINK / WIN_CSC_LINK ...) win; plain CSC_LINK / CSC_KEY_PASSWORD are the fallback.
+      # See README → "Code signing".
       - name: Build installer
-        run: npx electron-builder --publish never
+        shell: bash
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAC_LINK: ${{ secrets.MAC_CSC_LINK || secrets.CSC_LINK }}
+          MAC_PASS: ${{ secrets.MAC_CSC_KEY_PASSWORD || secrets.CSC_KEY_PASSWORD }}
+          WIN_LINK: ${{ secrets.WIN_CSC_LINK || secrets.CSC_LINK }}
+          WIN_PASS: ${{ secrets.WIN_CSC_KEY_PASSWORD || secrets.CSC_KEY_PASSWORD }}
+          NOTARY_ID: ${{ secrets.APPLE_ID }}
+          NOTARY_PASS: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          NOTARY_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          export CSC_IDENTITY_AUTO_DISCOVERY=false
+          case "$RUNNER_OS" in
+            macOS)
+              if [ -n "$MAC_LINK" ]; then
+                export CSC_LINK="$MAC_LINK" CSC_KEY_PASSWORD="$MAC_PASS" CSC_IDENTITY_AUTO_DISCOVERY=true
+                echo "macOS code signing: ENABLED"
+                if [ -n "$NOTARY_ID" ] && [ -n "$NOTARY_PASS" ] && [ -n "$NOTARY_TEAM" ]; then
+                  export APPLE_ID="$NOTARY_ID" APPLE_APP_SPECIFIC_PASSWORD="$NOTARY_PASS" APPLE_TEAM_ID="$NOTARY_TEAM"
+                  echo "macOS notarization: ENABLED"
+                else
+                  echo "::notice::macOS notarization skipped (APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID not all set)"
+                fi
+              else
+                echo "::notice::macOS code signing skipped (no MAC_CSC_LINK / CSC_LINK secret) — building unsigned"
+              fi ;;
+            Windows)
+              if [ -n "$WIN_LINK" ]; then
+                export WIN_CSC_LINK="$WIN_LINK" WIN_CSC_KEY_PASSWORD="$WIN_PASS"
+                echo "Windows code signing: ENABLED"
+              else
+                echo "::notice::Windows code signing skipped (no WIN_CSC_LINK / CSC_LINK secret) — building unsigned"
+              fi ;;
+          esac
+          npx electron-builder --publish never
+      - name: Verify signature
+        if: runner.os != 'Linux'
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            APP=$(ls -d dist/mac*/BLAM.app | head -1)
+            codesign -dv --verbose=2 "$APP" 2>&1 | grep -E "Authority|TeamIdentifier|Signature" || echo "App is not signed"
+            spctl -a -vv "$APP" 2>&1 || echo "Gatekeeper: not accepted (expected for unsigned or un-notarized builds)"
+          else
+            powershell -NoProfile -Command "Get-ChildItem dist/*.exe | ForEach-Object { \$s = Get-AuthenticodeSignature \$_.FullName; Write-Host \$_.Name \$s.Status \$s.SignerCertificate.Subject }"
+          fi
       - name: Launch test (Linux, packaged app)
         if: runner.os == 'Linux'
         run: |

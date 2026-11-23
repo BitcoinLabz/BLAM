@@ -73,6 +73,35 @@ npm run dist:linux   # AppImage + .deb
 npm test             # offline unit tests (market-data fallbacks, CSV parsing)
 ```
 
+## Code signing (maintainers)
+
+The release workflow signs automatically when the certificate secrets exist and builds unsigned when they don't, so you can add them whenever you're ready. Add them under **GitHub → Settings → Secrets and variables → Actions → New repository secret**.
+
+| Secret | Platform | What it is |
+|---|---|---|
+| `WIN_CSC_LINK` | Windows | Your code-signing certificate (`.pfx` / `.p12`), **base64-encoded** |
+| `WIN_CSC_KEY_PASSWORD` | Windows | The certificate's password |
+| `MAC_CSC_LINK` | macOS | Your **Developer ID Application** certificate exported from Keychain as `.p12`, base64-encoded |
+| `MAC_CSC_KEY_PASSWORD` | macOS | The `.p12` export password |
+| `APPLE_ID` | macOS | The Apple ID email of your developer account (for notarization) |
+| `APPLE_APP_SPECIFIC_PASSWORD` | macOS | An app-specific password from [account.apple.com](https://account.apple.com) → Sign-In and Security |
+| `APPLE_TEAM_ID` | macOS | Your 10-character Team ID (developer.apple.com → Membership) |
+
+If you only sign for one platform, you can use plain `CSC_LINK` / `CSC_KEY_PASSWORD` instead of the prefixed names. The prefixed names take priority, and you need them if you sign for both platforms, because the two certificates are different files.
+
+**Steps**
+
+1. **Encode the certificate** as a single line of base64:
+   - macOS / Linux: `base64 -i certificate.p12 | pbcopy` (or `base64 -w0 certificate.p12` on Linux)
+   - Windows (PowerShell): `[Convert]::ToBase64String([IO.File]::ReadAllBytes("certificate.pfx")) | Set-Clipboard`
+2. **Paste it** into the matching `*_CSC_LINK` secret, and put the password in `*_CSC_KEY_PASSWORD`.
+3. **macOS notarization** runs only when all three `APPLE_*` secrets are set. Without them the app is still signed but not notarized, and Gatekeeper will still warn on first launch. The app is built with the hardened runtime and `build/entitlements.mac.plist`, which notarization requires.
+4. **Bump the version and push to `main`.** The *Build installer* step logs `code signing: ENABLED` or `skipped` for each platform, and *Verify signature* prints the signer (`codesign` / `Get-AuthenticodeSignature`) so you can confirm it worked.
+
+> **Windows certificates on a hardware token or cloud HSM.** Code-signing certificates issued since mid-2023 usually can't be exported as a `.pfx`; they live on a USB token or a cloud service such as Azure Trusted Signing. `WIN_CSC_LINK` only works with an exportable `.pfx`. For Azure Trusted Signing, electron-builder supports `win.azureSignOptions` instead. Open an issue and we'll wire it up.
+
+Once builds are signed, remove the SmartScreen / "right-click → Open" notes from the README and from the release body in `.github/workflows/build.yml`.
+
 ## Getting started
 
 1. Launch BLAM and choose **Start fresh** (or **Explore with demo data** to look around first — clear it in Settings anytime).
