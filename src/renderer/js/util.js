@@ -237,6 +237,18 @@ window.BLAM = window.BLAM || {};
     return isNaN(d) ? null : U.iso(d);
   };
 
+  /** Copy text to the clipboard (with a fallback for older webviews). */
+  U.copy = async (text) => {
+    try { await navigator.clipboard.writeText(text); return true; } catch (_) {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      let ok = false; try { ok = document.execCommand('copy'); } catch (__) { /* ignore */ }
+      ta.remove();
+      return ok;
+    }
+  };
+
   U.debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
   U.by = (key, dir = 1) => (a, b) => {
     const va = typeof key === 'function' ? key(a) : a[key];

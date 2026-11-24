@@ -2,6 +2,15 @@
 
 Each `## x.y.z` section becomes the GitHub Release notes for that version.
 
+## 1.5.0
+
+**Statement → AI → BLAM**
+- Turn any PDF statement, photo or screenshot into transactions: on **Bank Import**, tap **Copy prompt**, paste it into any AI chatbot (ChatGPT, Claude, Gemini…) with your statement, then paste the AI's answer back into BLAM. No file to save.
+- The prompt includes an example and your own category names, so transactions arrive already categorized.
+- A review list with a checkbox per row shows what's **New**, what's **Already in BLAM**, and what your recurring bills already **Auto-posted**. Those start unticked, so nothing is counted twice.
+- Recurring bills are recognized by amount (within $1 or 2%), date (within 5 days) and keywords from their name, even when the bill was auto-posted to a different account. Add **Statement keywords** to a recurring item (e.g. `NFLX`) for anything with an unusual description.
+- The same recognition now applies to bank-file (OFX/QFX/QBO) and regular CSV imports.
+
 ## 1.4.0
 
 **BLAM on your phone (free)**

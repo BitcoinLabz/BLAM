@@ -85,7 +85,7 @@
     const plan = statements.map((st) => ({ st, accountId: guessOfxAccount(st, statements.length === 1 ? accountId || V.account : ''), balance: st.balance != null }));
     const label = (st) => `${st.credit ? 'Credit card' : (st.acctType || 'Bank').toLowerCase().replace(/^\w/, (c) => c.toUpperCase())} ···· ${U.esc(st.acctId.replace(/\D/g, '').slice(-4) || st.acctId)}${st.org ? ` · ${U.esc(st.org)}` : ''}`;
     const known = () => new Set(S.state.transactions.filter((t) => t.extId).map((t) => t.extId));
-    const twinOf = (t, accId, claimed) => S.state.transactions.find((x) => !x.extId && !claimed.has(x.id) && x.accountId === accId && Math.abs(U.num(x.amount) - t.amount) < 0.005 && Math.abs(U.daysBetween(x.date, t.date)) <= 3);
+    const twinOf = (t, accId, claimed) => { const h = S.findExisting(t, accId, claimed); return h && !h.tx.extId ? h.tx : null; };
     const preview = () => {
       const k = known();
       return plan.map((p) => {
@@ -111,7 +111,7 @@
           <div class="field"><label>Into account</label><select data-acc="${i}">${S.activeAccounts().map((a) => `<option value="${a.id}" ${a.id === p.accountId ? 'selected' : ''}>${U.esc(a.name)}</option>`).join('')}<option value="__new">+ New account from this statement</option></select></div>
           ${p.st.balance != null ? `<div class="field"><label>Balance</label><label class="switch"><input type="checkbox" data-bal="${i}" ${p.balance ? 'checked' : ''}><span></span><em>Set to bank balance ${U.money(p.st.credit ? -p.st.balance : p.st.balance)}${p.st.balanceDate ? ` (${U.fmtDate(p.st.balanceDate, { month: 'short', day: 'numeric' })})` : ''}</em></label></div>` : ''}
         </div>
-        <p class="muted" style="margin:8px 0 0">${pv[i].fresh} new${pv[i].adopt ? ` · ${pv[i].adopt} already in BLAM (will be matched, not duplicated)` : ''}${pv[i].dupes ? ` · ${pv[i].dupes} already imported` : ''}</p>
+        <p class="muted" style="margin:8px 0 0">${pv[i].fresh} new${pv[i].adopt ? ` · ${pv[i].adopt} already in BLAM or auto-posted by your recurring items (matched, not duplicated)` : ''}${pv[i].dupes ? ` · ${pv[i].dupes} already imported` : ''}</p>
       </div></div>`).join('');
       const tot = pv.reduce((a, x) => a + x.fresh, 0);
       m.foot.querySelector('#ofx-count').textContent = `${tot} new transaction${tot === 1 ? '' : 's'} to import`;
@@ -157,9 +157,21 @@
     };
   }
 
-  async function importCsv(accountId) {
+  /** CSV pasted from an AI chatbot (or anywhere): strip code fences / chatter, then review like a file. */
+  function importText(text, accountId) {
+    let t = String(text || '').replace(/\r/g, '');
+    const fence = t.match(/```(?:csv)?\s*\n([\s\S]*?)```/i);
+    if (fence) t = fence[1];
+    const lines = t.split('\n');
+    const start = lines.findIndex((l) => /date/i.test(l) && l.includes(','));
+    if (start > 0) t = lines.slice(start).join('\n');
+    if (!t.trim() || !t.includes(',')) { UI.toast('Paste the CSV the AI gave you (it starts with Date,Description,Amount…)', 'warn', 5000); return false; }
+    return importCsv(accountId, { name: 'pasted statement', content: t.trim() });
+  }
+
+  async function importCsv(accountId, given) {
     if (!S.activeAccounts().length) { UI.toast('Add an account first', 'warn'); return; }
-    const file = await U.openFile('.csv,.ofx,.qfx,.qbo,.txt');
+    const file = given || await U.openFile('.csv,.ofx,.qfx,.qbo,.txt');
     if (!file) return;
     const statements = U.parseOfx(file.content);
     if (statements) return importOfx(file, statements, accountId);
@@ -177,7 +189,7 @@
       credit: guess(headers, [/^credit$/i, /^credits?$|deposit/i]),
       sign: guessSignCol(headers, data),
       category: guess(headers, [/^category$/i, /category/i]),
-      flip: false, skipDupes: true,
+      flip: false,
     };
     if (map.debit && map.credit) map.amount = map.amount === map.debit || map.amount === map.credit ? '' : map.amount;
     // Amex (and some other card issuers) export charges as POSITIVE numbers. BLAM stores spending as negative.
@@ -193,18 +205,22 @@
 
     const m = UI.modal({
       title: `Import ${file.name}`, xwide: true,
-      body: `<div class="form-intro">Map the columns from your bank's CSV export. BLAM auto-categorizes using your rules and smart payee detection, and skips duplicates.</div>
+      body: `<div class="form-intro">Pick the account, then untick anything you don't want. Rows already in BLAM (duplicates, or bills your recurring items already auto-posted) start unticked so nothing is counted twice.</div>
         <div class="mapping-grid" id="map"></div><div id="flipnote"></div><div class="preview-tbl" id="prev"></div>`,
       footer: `<span class="muted" id="imp-count"></span><span class="grow"></span><button class="btn ghost" data-c>Cancel</button><button class="btn primary" data-go>Import</button>`,
     });
     const sel = (k, label, opts) => `<div class="field"><label>${label}</label><select data-m="${k}">${opts.map((o) => `<option value="${U.esc(o.value)}" ${String(map[k]) === String(o.value) ? 'selected' : ''}>${U.esc(o.label)}</option>`).join('')}</select></div>`;
+    // BLAM's own format (what the AI prompt produces): hide the column pickers unless asked.
+    const standard = ['date', 'description', 'amount'].every((h) => headers.some((x) => x.toLowerCase() === h));
+    const col = (html) => (standard ? html.replace('<div class="field">', '<div class="field col-pick" hidden>') : html);
     m.body.querySelector('#map').innerHTML = [
       sel('accountId', 'Into account', accOptions()),
-      sel('date', 'Date column', colOpts), sel('payee', 'Description column', colOpts),
-      sel('amount', 'Amount column (signed)', colOpts), sel('debit', 'or Debit column', colOpts), sel('credit', 'or Credit column', colOpts),
-      sel('sign', 'Debit/Credit type column', colOpts),
-      sel('category', 'Category column (optional)', colOpts),
-      `<div class="field"><label>Options</label><label class="switch"><input type="checkbox" data-m="flip" ${map.flip ? 'checked' : ''}><span></span><em>Flip signs</em></label><label class="switch"><input type="checkbox" data-m="skipDupes" checked><span></span><em>Skip duplicates</em></label></div>`,
+      ...[sel('date', 'Date column', colOpts), sel('payee', 'Description column', colOpts),
+        sel('amount', 'Amount column (signed)', colOpts), sel('debit', 'or Debit column', colOpts), sel('credit', 'or Credit column', colOpts),
+        sel('sign', 'Debit/Credit type column', colOpts),
+        sel('category', 'Category column (optional)', colOpts)].map(col),
+      standard ? '<div class="field"><label>Columns</label><button class="btn sm" type="button" data-cols>Adjust columns</button></div>' : '',
+      `<div class="field"><label>Options</label><label class="switch"><input type="checkbox" data-m="flip" ${map.flip ? 'checked' : ''}><span></span><em>Flip signs</em></label></div>`,
     ].join('');
 
     const parse = () => {
@@ -229,28 +245,52 @@
       }
       return out;
     };
-    const isDupe = (t) => S.state.transactions.some((x) => x.accountId === map.accountId && x.date === t.date && Math.abs(x.amount - t.amount) < 0.005 && (x.payee || '').toLowerCase() === t.payee.toLowerCase());
+    // Each row: new, or already in BLAM (duplicate / auto-posted recurring). Unticked items are skipped.
+    let items = [];
+    let pick = new Set();
+    let pickedBy = '';
+    const classify = () => {
+      const claimed = new Set();
+      items = parse().map((t) => {
+        const hit = S.findExisting(t, map.accountId, claimed);
+        if (hit) claimed.add(hit.tx.id);
+        return { ...t, hit };
+      });
+      const key = `${map.accountId}|${items.length}|${map.flip}|${map.amount}|${map.date}`;
+      if (key !== pickedBy) { pick = new Set(items.map((r, i) => (r.hit ? -1 : i)).filter((i) => i >= 0)); pickedBy = key; }
+    };
+    const why = (r) => (!r.hit ? '<span class="tag" style="--tc:#2ecf8f">New</span>'
+      : r.hit.kind === 'recurring' ? `<span class="tag" style="--tc:#8b5cf6" title="Auto-posted ${U.esc(U.fmtDate(r.hit.tx.date))} · ${U.esc(U.money(r.hit.tx.amount))}">Auto-posted: ${U.esc(r.hit.recurring?.name || r.hit.tx.payee)}</span>`
+      : `<span class="tag" style="--tc:#64748b" title="Matches ${U.esc(r.hit.tx.payee)} · ${U.esc(U.fmtDate(r.hit.tx.date))} · ${U.esc(U.money(r.hit.tx.amount))}. Tick the box if it's a different charge.">Already in BLAM: ${U.esc(String(r.hit.tx.payee).slice(0, 22))}</span>`);
     const refresh = () => {
-      const p = parse();
-      const fresh = map.skipDupes ? p.filter((t) => !isDupe(t)) : p;
+      classify();
+      const skipped = items.length - pick.size;
+      const recur = items.filter((r, i) => r.hit?.kind === 'recurring' && !pick.has(i)).length;
       m.body.querySelector('#flipnote').innerHTML = flipNote();
-      m.foot.querySelector('#imp-count').textContent = `${fresh.length} to import${p.length - fresh.length ? ` · ${p.length - fresh.length} duplicates skipped` : ''}`;
-      m.body.querySelector('#prev').innerHTML = `<table class="tbl"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="r">Amount</th></tr></thead><tbody>${fresh.slice(0, 12).map((t) => `<tr><td>${U.fmtDate(t.date)}</td><td>${U.esc(t.payee)}</td><td>${t.category ? UI.tag(t.category) : '<span class="muted">auto</span>'}</td><td class="r">${U.mc(t.amount)}</td></tr>`).join('')}</tbody></table>`;
-      return fresh;
+      m.foot.querySelector('#imp-count').textContent = `${pick.size} to import${skipped ? ` · ${skipped} skipped` : ''}${recur ? ` (${recur} already auto-posted)` : ''}`;
+      m.body.querySelector('#prev').innerHTML = items.length ? `<div class="tbl-wrap" style="max-height:46vh;overflow:auto"><table class="tbl"><thead><tr><th style="width:34px"><input type="checkbox" data-all ${pick.size === items.length ? 'checked' : ''}></th><th>Date</th><th>Description</th><th>Category</th><th class="r">Amount</th><th>Status</th></tr></thead><tbody>${items.slice(0, 1000).map((t, i) => `<tr style="${pick.has(i) ? '' : 'opacity:.55'}"><td><input type="checkbox" data-row="${i}" ${pick.has(i) ? 'checked' : ''}></td><td class="nowrap">${U.fmtDate(t.date)}</td><td>${U.esc(t.payee)}</td><td>${t.category ? UI.tag(t.category) : '<span class="muted">auto</span>'}</td><td class="r">${U.mc(t.amount)}</td><td>${why(t)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No transactions found. Check the Date and Amount columns above.</p>';
+      return items.filter((r, i) => pick.has(i));
     };
     m.body.querySelector('#map').addEventListener('change', (e) => {
       const k = e.target.dataset.m; if (!k) return;
       map[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
       refresh();
     });
+    m.body.querySelector('[data-cols]')?.addEventListener('click', (e) => { m.body.querySelectorAll('.col-pick').forEach((f) => { f.hidden = false; }); e.target.closest('.field').remove(); });
+    m.body.querySelector('#prev').addEventListener('change', (e) => {
+      if (e.target.dataset.all != null) pick = e.target.checked ? new Set(items.map((_, i) => i)) : new Set();
+      else if (e.target.dataset.row != null) { const i = +e.target.dataset.row; if (e.target.checked) pick.add(i); else pick.delete(i); }
+      refresh();
+    });
     refresh();
     m.foot.querySelector('[data-c]').onclick = m.close;
     m.foot.querySelector('[data-go]').onclick = () => {
-      const fresh = refresh();
-      fresh.forEach((t) => S.addTransaction({ ...t, accountId: map.accountId, imported: true }, { silent: true }));
+      const chosen = refresh();
+      chosen.forEach(({ hit, ...t }) => S.addTransaction({ ...t, accountId: map.accountId, imported: true }, { silent: true }));
       S.commit(() => {});
-      S.log(`Imported ${fresh.length} transactions from ${file.name}`, 'info');
-      UI.toast(`Imported ${fresh.length} transactions`);
+      const skipped = items.length - chosen.length;
+      S.log(`Imported ${chosen.length} transactions from ${file.name}${skipped ? ` (${skipped} already in BLAM skipped)` : ''}`, 'info');
+      UI.toast(`Imported ${chosen.length} transaction${chosen.length === 1 ? '' : 's'}${skipped ? ` · ${skipped} skipped` : ''}`);
       m.close();
     };
   }
@@ -276,6 +316,7 @@
     add: (defaults) => edit(null, defaults),
     edit,
     importCsv,
+    importText,
     render(root, params) {
       if (V.month === null) V.month = U.thisMonth();
       if (params.category || params.account) {

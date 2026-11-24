@@ -119,7 +119,11 @@ Once builds are signed, remove the SmartScreen / "right-click → Open" notes fr
 2. Add your **Banks & Cards** with current balances.
 3. Add **Crypto & Stocks** — prices go live automatically.
 4. Add **Loans** (check "auto-post" to put payments on autopilot) and **Properties** (link the mortgage).
-5. Download your bank's **Quicken / QuickBooks file (QFX / QBO / OFX)** or CSV and click **Import bank file**. It's free, and duplicates are skipped automatically. Then click **Auto-budget**.
+5. Bring in transactions from **Bank Import**:
+   - **Any statement (PDF, photo, screenshot):** tap **Copy prompt**, paste it into any AI chatbot with your statement, then paste the AI's CSV answer back into BLAM.
+   - **Bank download file:** your bank's Quicken / QuickBooks file (QFX / QBO / OFX) or CSV → **Import bank file**.
+
+   Either way, BLAM skips anything already in the app, including bills your recurring items already auto-posted. Then click **Auto-budget**.
 6. Set up **Bills & Recurring** so paychecks, bills and transfers post themselves.
 
 Shortcuts: `Ctrl/⌘ + K` quick add · `Ctrl/⌘ + Shift + R` refresh prices.

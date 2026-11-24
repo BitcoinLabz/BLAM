@@ -30,6 +30,7 @@
         { key: 'toAccountId', label: 'To account', type: 'select', col: 3, show: (v) => v.kind === 'transfer', options: [{ value: '', label: '— external —' }, ...accs] },
         { key: 'category', label: 'Category', type: 'select', col: 3, show: (v) => v.kind !== 'loan', options: cats },
         { key: 'propertyId', label: 'Property (optional)', type: 'select', col: 3, show: (v) => v.kind !== 'loan', options: [{ value: '', label: '— none —' }, ...S.state.properties.map((p) => ({ value: p.id, label: p.name }))] },
+        { key: 'keywords', label: 'Statement keywords (optional)', col: 3, placeholder: 'e.g. NFLX, NETFLIX', show: (v) => v.kind !== 'transfer', help: 'Words that appear on your bank statement for this item. Imports use them to recognize it and avoid double-counting. Blank = words from the name.' },
         { key: 'endDate', label: 'End date (optional)', type: 'date', col: 3 },
         { key: 'autoPost', label: 'Automation', type: 'checkbox', col: 3, checkLabel: 'Auto-post on due date' },
         { key: 'paused', label: 'Paused', type: 'checkbox', col: 3, checkLabel: 'Temporarily paused' },

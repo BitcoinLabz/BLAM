@@ -271,6 +271,40 @@
     return null;
   };
 
+  // ---------------------------------------------------------------- import matching
+  const GENERIC = new Set(['the', 'and', 'for', 'payment', 'pay', 'bill', 'monthly', 'auto', 'autopay', 'transfer', 'inc', 'llc', 'com', 'online', 'card', 'loan', 'save', 'to', 'from', 'rent', 'unit']);
+  const norm = (x) => String(x || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+  /** Words that identify a recurring item on a bank statement: its "statement keywords", else its name. */
+  S.recurringKeywords = (r) => {
+    const own = String(r.keywords || '').split(',').map(norm).filter(Boolean);
+    if (own.length) return own;
+    return norm(r.name).split(' ').filter((w) => w.length >= 3 && !GENERIC.has(w.toLowerCase()));
+  };
+  /**
+   * Is an incoming bank / statement row already in BLAM?
+   *  - 'duplicate': same account, same amount, within 3 days (entered by hand or imported before)
+   *  - 'recurring': a bill / paycheck BLAM auto-posted (any account), amount within $1 or 2%,
+   *    within 5 days, and the description contains one of the item's keywords
+   *    (same-account matches don't need the keyword).
+   * `claimed` holds transaction ids already matched in this import so each matches only once.
+   */
+  S.findExisting = (t, accountId, claimed = new Set()) => {
+    const amt = U.num(t.amount);
+    const dup = state.transactions.find((x) => !claimed.has(x.id) && x.accountId === accountId && Math.abs(U.num(x.amount) - amt) < 0.005 && Math.abs(U.daysBetween(x.date, t.date)) <= 3);
+    if (dup) return dup.recurringId ? { kind: 'recurring', tx: dup, recurring: state.recurring.find((y) => y.id === dup.recurringId) } : { kind: 'duplicate', tx: dup };
+    const text = norm(`${t.payee} ${t.memo || ''}`);
+    for (const x of state.transactions) {
+      if (!x.recurringId || claimed.has(x.id)) continue;
+      const xa = U.num(x.amount);
+      if (Math.sign(xa) !== Math.sign(amt) || Math.abs(xa - amt) > Math.max(1, Math.abs(amt) * 0.02)) continue;
+      if (Math.abs(U.daysBetween(x.date, t.date)) > 5) continue;
+      const r = state.recurring.find((y) => y.id === x.recurringId);
+      const words = r ? S.recurringKeywords(r) : [];
+      if (x.accountId === accountId || words.some((w) => text.includes(w))) return { kind: 'recurring', tx: x, recurring: r };
+    }
+    return null;
+  };
+
   S.txnsInMonth = (key, accountId) => state.transactions.filter((t) => U.monthKey(t.date) === key && (!accountId || t.accountId === accountId));
 
   /** Income / spending summary for a list of transactions. Transfers excluded. */
