@@ -31,7 +31,19 @@
   let current = null;
   let currentParams = {};
 
+  /** Phone layout: bottom tabs for the main screens, "More" opens the full menu as a drawer. */
+  const TABS = [['dashboard', 'Home', 'dashboard'], ['accounts', 'Accounts', 'bank'], ['transactions', 'Activity', 'list'], ['investments', 'Invest', 'bitcoin']];
+  function renderTabs() {
+    const bar = document.getElementById('tabbar');
+    if (!bar) return;
+    const inTabs = TABS.some(([id]) => id === current);
+    bar.innerHTML = TABS.map(([id, label, icon]) => `<a href="#/${id}" class="${id === current ? 'active' : ''}">${UI.icon(icon, 22)}<span>${label}</span></a>`).join('')
+      + `<a href="#" data-more class="${inTabs ? '' : 'active'}">${UI.icon('menu', 22)}<span>More</span></a>`;
+  }
+  const closeDrawer = () => document.body.classList.remove('nav-open');
+
   function renderNav() {
+    renderTabs();
     const nav = document.getElementById('nav');
     nav.innerHTML = NAV.map((n) => n.g
       ? `<div class="nav-g">${n.g}</div>`
@@ -199,7 +211,13 @@
     }
     // re-render active view whenever state changes (debounced)
     S.on(U.debounce(() => B.rerender(), 30));
-    window.addEventListener('hashchange', route);
+    window.addEventListener('hashchange', () => { closeDrawer(); route(); });
+    document.getElementById('tabbar')?.addEventListener('click', (e) => {
+      if (e.target.closest('[data-more]')) { e.preventDefault(); document.body.classList.toggle('nav-open'); }
+      else closeDrawer();
+    });
+    document.getElementById('nav-scrim')?.addEventListener('click', closeDrawer);
+    document.getElementById('nav').addEventListener('click', (e) => { if (e.target.closest('a')) closeDrawer(); });
     document.addEventListener('keydown', (e) => {
       if (document.querySelector('.lock-screen')) return; // no shortcuts while locked
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); quickAdd(); }

@@ -177,3 +177,35 @@ jobs:
           body_path: body.md
           files: artifacts/*
           overwrite_files: true
+
+  # Phone / web app (installable PWA) on GitHub Pages. Needs: repo public (or a paid plan) and
+  # Settings -> Pages -> Source: "GitHub Actions". Optional secret PWA_SLUG = the unlisted folder name.
+  # continue-on-error: a Pages problem never blocks the desktop release.
+  pages:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Build phone / web app
+        run: node scripts/build-web.js
+        env:
+          PWA_SLUG: ${{ secrets.PWA_SLUG }}
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist-web
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

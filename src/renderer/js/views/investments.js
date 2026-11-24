@@ -129,6 +129,7 @@
 
       root.innerHTML = `
         ${UI.pageHead('Crypto & Stocks', 'Live-priced portfolio across crypto, stocks, ETFs, funds and bonds.', `${UI.btn('Find coin', 'find', { icon: 'search' })}${UI.btn('Refresh prices', 'refresh', { icon: 'refresh' })}${UI.btn('Add holding', 'add', { icon: 'plus', kind: 'primary' })}`)}
+        ${!window.blam && s.holdings.some((h) => h.assetClass !== 'crypto' && h.autoPrice !== false) ? `<div class="callout info" style="margin-bottom:16px">${UI.icon('info')}<div>On the phone version, crypto prices update live. Stock, ETF and metal prices come from your desktop app (via Export backup → Restore) or from prices you enter. Phone browsers can't reach the stock-quote services directly.</div></div>` : ''}
         ${unavailable.length ? `<div class="callout warn" style="margin-bottom:16px">${UI.icon('info')}<div><b>${unavailable.length} price${unavailable.length === 1 ? '' : 's'} unavailable:</b> ${unavailable.slice(0, 6).map((h) => `${U.esc(h.symbol)} <span class="faint">(${U.esc(h.priceError)})</span>`).join(', ')}${unavailable.length > 6 ? '…' : ''}. Values use the last known price. Check the ticker / CoinGecko ID, or turn off live pricing to enter prices manually.</div></div>` : ''}
         ${stale && !unavailable.length ? `<div class="callout info" style="margin-bottom:16px">${UI.icon('info')}<div>Prices were last updated ${U.timeAgo(s.settings.lastPriceSuccess)}. BLAM refreshes automatically every ${s.settings.autoRefreshMinutes || 15} minutes while open.</div></div>` : ''}
         <div class="grid g5">

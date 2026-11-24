@@ -2,6 +2,16 @@
 
 Each `## x.y.z` section becomes the GitHub Release notes for that version.
 
+## 1.4.0
+
+**BLAM on your phone (free)**
+- New phone version for iPhone and Android: open the link, then **Add to Home Screen** (iPhone: Share → Add to Home Screen; Android: Install app). It gets its own icon, opens full-screen and works offline.
+- Designed for small screens: bottom tabs (Home, Accounts, Activity, Invest, More), single-column pages, forms that slide up from the bottom, and touch-sized controls.
+- Your data stays on the phone, in the browser's app storage, with daily and before-erase backups just like desktop. Nothing is sent to the website.
+- Crypto prices update live on the phone. Stock, ETF and metal prices come from your desktop app (Export backup → Restore on the phone) or from prices you enter, because phone browsers can't reach those quote services.
+- Import bank files (OFX / QFX / QBO / CSV) straight from your phone's Downloads or Files.
+- The phone app updates itself the next time you open it after a new release.
+
 ## 1.3.0
 
 **Automatic updates**

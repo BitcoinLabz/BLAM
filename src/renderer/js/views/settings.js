@@ -130,15 +130,24 @@
           if (!(await UI.confirm('This permanently deletes every account, transaction, holding and setting.', { title: 'Erase all data?', ok: 'Erase everything' }))) return;
           await S.replaceAll(S.blank(), 'erase');
           B.go('dashboard');
-          UI.toast(window.blam ? 'All data erased · a safety copy was saved in your backups folder' : 'All data erased');
+          UI.toast(window.blam || B.Web ? 'All data erased · a safety copy was saved in your backups' : 'All data erased');
         },
         restore: async (d) => {
           if (!(await UI.confirm(`Restore the automatic backup from ${d.name.replace(/\D+/g, ' ').trim()}? Current data will be replaced.`, { ok: 'Restore', title: 'Restore backup' }))) return;
-          const raw = await window.blam.restoreBackup(d.name);
+          const raw = window.blam ? await window.blam.restoreBackup(d.name) : await B.Web.restoreBackup(d.name);
           await S.replaceAll(JSON.parse(raw), 'restore');
           UI.toast('Backup restored'); B.go('dashboard');
         },
       });
+      if (!window.blam && B.Web) {
+        const [list, est, persisted] = await Promise.all([B.Web.backups(), B.Web.estimate(), B.Web.persist()]);
+        const di = root.querySelector('#data-info');
+        if (!di) return;
+        di.innerHTML = `Stored on this device in the browser's app storage${est ? ` · ${(est.usage / 1024).toFixed(0)} KB used` : ''} · ${persisted ? '<span class="pos">protected from automatic clean-up</span>' : '<span class="warn-t">the browser may clear it if storage runs low. Install BLAM to your Home Screen and export backups regularly</span>'}`;
+        root.querySelector('#backups').innerHTML = list.length ? `<div class="muted" style="font-size:12px;margin-bottom:6px">Automatic backups on this device — click to restore</div><div class="chip-row">${list.slice(0, 12).map((b) => `<span class="chip" data-act="restore" data-name="${U.esc(b)}">${U.esc(b.startsWith('before-') ? `before ${b.replace(/^before-([a-z]+)-(\d{4}-\d{2}-\d{2})-(\d{2})(\d{2})\d{2}$/i, '$1 · $2 $3:$4')}` : b.replace('backup-', ''))}</span>`).join('')}</div>` : '';
+        const ver = root.querySelector('#ver');
+        if (ver && window.BLAM_WEB_VERSION) ver.textContent = `Version ${window.BLAM_WEB_VERSION} · phone / web app · Local-first personal finance · MIT licensed`;
+      }
       if (window.blam) {
         const info = await window.blam.info();
         const di = root.querySelector('#data-info');

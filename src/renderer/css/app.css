@@ -352,3 +352,76 @@ body.privacy .amt:hover { filter: none; }
 .steps li { margin-bottom: 6px; }
 .steps a, .callout a { color: var(--accent2); }
 .warn-t { color: var(--warn); }
+
+/* ------------------------------------------------------------------ Phone layout
+   Desktop windows never get this narrow (minWidth 1100), so these rules only affect the phone / web app. */
+.tabbar, .nav-scrim { display: none; }
+@media (max-width: 760px) {
+  html, body { height: 100%; }
+  .app { display: block; height: 100dvh; }
+  .main { height: 100dvh; }
+  .sidebar { position: fixed; z-index: 300; top: 0; bottom: 0; left: 0; width: min(300px, 84vw); transform: translateX(-102%); transition: transform .22s ease; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); box-shadow: 20px 0 60px rgba(0,0,0,.5); }
+  body.nav-open .sidebar { transform: none; }
+  .nav-scrim { display: block; position: fixed; inset: 0; z-index: 290; background: rgba(3,5,9,.6); opacity: 0; pointer-events: none; transition: opacity .2s; }
+  body.nav-open .nav-scrim { opacity: 1; pointer-events: auto; }
+  .nav a { padding: 11px 10px; font-size: 15px; }
+
+  .topbar { height: auto; min-height: 52px; padding: env(safe-area-inset-top) 12px 0; gap: 4px; }
+  .topbar .crumb { font-size: 16px; color: var(--text); }
+  .price-stamp #price-stamp { display: none; }
+  .topbar [data-act="quickadd"] span { display: none; }
+  .topbar [data-act="quickadd"] { padding: 7px 10px; }
+  .icon-btn { width: 38px; height: 38px; }
+
+  .content { padding: 16px 14px calc(88px + env(safe-area-inset-bottom)); -webkit-overflow-scrolling: touch; }
+  .page-h { margin-bottom: 16px; gap: 12px; align-items: flex-start; }
+  .page-h h1 { font-size: 22px; }
+  .page-a { width: 100%; }
+  .page-a .btn { flex: 1 1 auto; justify-content: center; }
+
+  .grid { gap: 12px; }
+  .g2, .g3, .g-21, .g-12, .g-32 { grid-template-columns: minmax(0, 1fr); }
+  .g4, .g5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi { padding: 13px 14px; }
+  .kpi-v { font-size: 19px; }
+  .kpi-top { font-size: 10.5px; letter-spacing: .4px; }
+  .kpi-ic { display: none; }
+  .kpi.hero { grid-column: 1 / -1; }
+  .kpi.hero .kpi-v { font-size: 30px; }
+  .kpi-spark { display: none; }
+  .card-h { padding: 14px 14px 4px; }
+  .card-b { padding: 10px 14px 14px; }
+  .tbl { font-size: 13px; }
+  .tbl th, .tbl td { padding: 9px 10px; }
+  .tbl th:first-child, .tbl td:first-child { position: sticky; left: 0; background: var(--surface); z-index: 1; }
+
+  .fgrid { grid-template-columns: minmax(0, 1fr); }
+  .fgrid > * { grid-column: 1 / -1 !important; }
+  .field input, .field select, .field textarea, .input { font-size: 16px; } /* stops iOS zooming into inputs */
+  .mapping-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .toolbar .input { min-width: 0; flex: 1 1 140px; }
+
+  .modal-back { padding: 0; place-items: end stretch; z-index: 350; } /* above the tab bar and drawer */
+  .modal, .modal.wide, .modal.xwide { width: 100%; max-height: 94dvh; border-radius: 18px 18px 0 0; }
+  .modal-f { border-radius: 0; padding-bottom: calc(14px + env(safe-area-inset-bottom)); flex-wrap: wrap; }
+  .modal-b { padding: 6px 16px 18px; }
+  .modal-h { padding: 16px 16px 10px; }
+
+  #toasts { left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 400; }
+  .welcome { margin: 10px auto; }
+  .welcome h1 { font-size: 28px; }
+  .welcome-grid { grid-template-columns: minmax(0, 1fr); }
+
+  .tabbar { display: flex; position: fixed; z-index: 250; left: 0; right: 0; bottom: 0; padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); background: rgba(8, 11, 17, .92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-top: 1px solid var(--border); }
+  .tabbar a { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0 4px; color: var(--muted); text-decoration: none; font-size: 10.5px; font-weight: 600; border-radius: 10px; -webkit-tap-highlight-color: transparent; }
+  .tabbar a.active { color: var(--accent2); }
+  .tabbar a .ic { width: 22px; height: 22px; }
+}
+@media (max-width: 760px) {
+  .budget-row { grid-template-columns: minmax(0, 1fr) 84px 72px 34px; gap: 6px 10px; }
+  .budget-row > :nth-child(2) { order: 10; grid-column: 1 / -1; }
+  .budget-row > :nth-child(5) { display: none; }
+  .budget-row.head > :nth-child(2) { display: none; }
+  .budget-row .budget-in { font-size: 15px; }
+}
+@media (max-width: 380px) { .g4, .g5 { grid-template-columns: minmax(0, 1fr); } }

@@ -84,21 +84,19 @@
   // --------------------------------------------------------------- prices
   async function fetchQuotes(symbols) {
     if (hasDesktop()) return window.blam.quotes(symbols);
-    const out = {};
-    for (const sym of symbols) {
-      try {
-        const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=5d&interval=1d`);
-        const j = await r.json(); const m = j.chart.result[0].meta;
-        out[sym] = { price: m.regularMarketPrice, change24h: m.chartPreviousClose ? ((m.regularMarketPrice - m.chartPreviousClose) / m.chartPreviousClose) * 100 : null, name: m.longName || m.shortName };
-      } catch (e) { out[sym] = { error: 'Unavailable in browser preview' }; }
-    }
-    return out;
+    return {}; // not reachable from a browser
   }
   async function fetchCrypto(ids) {
     if (hasDesktop()) return window.blam.cryptoPrices(ids);
-    const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(',')}&vs_currencies=usd&include_24hr_change=true`);
-    const j = await r.json(); const out = {};
-    for (const [k, v] of Object.entries(j)) out[k] = { price: v.usd, change24h: v.usd_24h_change };
+    const out = {};
+    const uniq = [...new Set(ids)];
+    for (let i = 0; i < uniq.length; i += 50) {
+      const chunk = uniq.slice(i, i + 50);
+      const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(chunk.join(','))}&vs_currencies=usd&include_24hr_change=true`);
+      if (!r.ok) { chunk.forEach((id) => { out[id] = { error: r.status === 429 ? 'CoinGecko rate limit — try again in a minute' : `CoinGecko HTTP ${r.status}` }; }); continue; }
+      const j = await r.json();
+      for (const id of chunk) out[id] = j[id] && Number.isFinite(j[id].usd) ? { price: j[id].usd, change24h: j[id].usd_24h_change ?? null, source: 'CoinGecko' } : { error: `CoinGecko has no price for "${id}"` };
+    }
     return out;
   }
 
@@ -113,8 +111,10 @@
     try {
       const auto = s.holdings.filter((h) => h.autoPrice !== false);
       const cryptoH = auto.filter((h) => h.assetClass === 'crypto' && A.cryptoId(h));
-      const secH = auto.filter((h) => h.assetClass !== 'crypto' && h.symbol);
-      const metalSyms = Object.entries(S.METALS).filter(([k]) => s.metals.some((m) => m.metal === k) || ['gold', 'silver'].includes(k)).map(([, v]) => v.symbol);
+      // Phone / web version: browsers can't reach Yahoo or Nasdaq (no CORS), so only crypto updates live there.
+      const web = !hasDesktop();
+      const secH = web ? [] : auto.filter((h) => h.assetClass !== 'crypto' && h.symbol);
+      const metalSyms = web ? [] : Object.entries(S.METALS).filter(([k]) => s.metals.some((m) => m.metal === k) || ['gold', 'silver'].includes(k)).map(([, v]) => v.symbol);
       const offline = navigator.onLine === false;
 
       const [cp, qp] = offline ? [{}, {}] : await Promise.all([
@@ -125,6 +125,7 @@
       S.commit((st) => {
         for (const h of st.holdings) {
           if (h.autoPrice === false) { delete h.priceError; continue; }
+          if (web && h.assetClass !== 'crypto') continue; // keep the price from the desktop app / manual entry
           const key = h.assetClass === 'crypto' ? A.cryptoId(h) : String(h.symbol || '').toUpperCase();
           if (!key) { h.priceError = h.assetClass === 'crypto' ? 'No CoinGecko ID — edit the holding or use Find coin' : 'No ticker symbol'; fail++; continue; }
           if (offline) continue; // keep last known state; the top bar shows we're offline
@@ -145,7 +146,7 @@
           if (q && Number.isFinite(q.price)) {
             st.metalPrices[k] = q.price; st.metalPrices[`${k}Change`] = Number.isFinite(q.change24h) ? q.change24h : null; metalsOk++;
             if (s.metals.some((m) => m.metal === k)) ok++;
-          } else if (!offline && s.metals.some((m) => m.metal === k)) { fail++; errors.push(`${v.label}: ${q?.error || 'unavailable'}`); }
+          } else if (!offline && !web && s.metals.some((m) => m.metal === k)) { fail++; errors.push(`${v.label}: ${q?.error || 'unavailable'}`); }
         }
         if (metalsOk) st.metalPrices.updated = now;
         st.settings.lastPriceRefresh = now;

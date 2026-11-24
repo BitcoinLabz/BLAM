@@ -56,7 +56,16 @@ Go to **[Releases → Latest](https://github.com/BitcoinLabz/BLAM/releases/lates
 
 > Every push to `main` automatically builds all three platforms with GitHub Actions, launch-tests the packaged app and publishes a Release for the version in `package.json`, with notes taken from that version's section in [`CHANGELOG.md`](CHANGELOG.md). To cut a new release, bump `version` and add a changelog section. If the version's tag already exists at another commit, the build still runs but nothing is published, so a tag always matches its installers.
 
-### Option 2 — Run from source
+### Option 2 — On your phone (iPhone & Android, free)
+Open the BLAM phone link in **Safari** (iPhone) or **Chrome** (Android), then:
+- **iPhone:** tap **Share → Add to Home Screen**
+- **Android:** tap **⋮ → Install app**
+
+It opens full-screen with its own icon, works offline, and keeps your data **only on the phone**. The website just delivers the app. Crypto prices update live. For stock, ETF and metal prices, use **Settings → Export backup** on desktop and **Restore** on the phone, or type them in.
+
+> Maintainers: the phone app is published to GitHub Pages by the release workflow. One-time setup: make the repo public, open **Settings → Pages**, set **Source: GitHub Actions**, and (optional) add a repository secret **`PWA_SLUG`** with a random string such as `k7q2x9m4f1z8`. The app then lives at `https://bitcoinlabz.github.io/BLAM/<PWA_SLUG>/` (without the secret, at `/BLAM/app/`), and the site root shows nothing. Build it locally with `npm run build:web`.
+
+### Option 3 — Run from source
 Requires [Node.js 20+](https://nodejs.org).
 
 ```bash
@@ -136,11 +145,13 @@ src/
 │  ├─ market.js      Prices & dividends with Yahoo → Nasdaq → CoinGecko fallbacks
 │  ├─ updater.js     Auto-updates from GitHub Releases (electron-updater)
 │  └─ preload.js     Narrow contextBridge API (no Node in the renderer)
+├─ web/             Phone app extras: icons, service-worker bootstrap (scripts/build-web.js builds the PWA)
 └─ renderer/
-   ├─ index.html     Shell + strict Content-Security-Policy
+   ├─ index.html     Shell + strict Content-Security-Policy (shared by desktop and phone)
    ├─ css/app.css    Design system
    └─ js/
-      ├─ util.js         Formatting, dates, CSV, frequencies
+      ├─ util.js         Formatting, dates, CSV / OFX parsing, frequencies
+      ├─ webstore.js     Phone / web storage (IndexedDB + on-device backups)
       ├─ finance.js      Amortization, payoff strategies, real-estate & investment math
       ├─ store.js        State, schema migrations, CRUD, balance accounting, valuation
       ├─ charts.js       Zero-dependency SVG charts (line/area, bar, donut, sparkline) with tooltips

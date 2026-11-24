@@ -111,7 +111,7 @@
   S.load = async () => {
     let raw = null;
     try {
-      const res = window.blam ? await window.blam.load() : localStorage.getItem('blam-data');
+      const res = window.blam ? await window.blam.load() : B.Web ? await B.Web.load() : localStorage.getItem('blam-data');
       if (res && typeof res === 'object') {
         raw = res.raw;
         if (res.recoveredFrom) S.loadProblem = { recovered: true, msg: `Your data file was damaged, so BLAM restored the backup "${res.recoveredFrom}". The damaged file was kept as ${res.corruptCopy}.` };
@@ -139,6 +139,7 @@
     saving = saving.then(async () => {
       try {
         if (window.blam) await window.blam.save(json);
+        else if (B.Web) await B.Web.save(json);
         else localStorage.setItem('blam-data', json);
       } catch (e) { console.error('Save failed', e); B.UI?.toast('Save failed: ' + e.message, 'error'); }
     });
@@ -149,7 +150,7 @@
   /** Replace all data. `reason` (erase / restore / demo) keeps a safety copy of the current file first. */
   S.replaceAll = async (obj, reason) => {
     await saving;
-    if (reason && window.blam?.safetyBackup && !S.loadProblem?.readOnly) await window.blam.safetyBackup(reason);
+    if (reason && !S.loadProblem?.readOnly) { const sb = window.blam?.safetyBackup || B.Web?.safetyBackup; if (sb) await sb(reason); }
     if (S.loadProblem?.readOnly) S.loadProblem = null; // an explicit restore/erase is the user's decision
     state = migrate(obj);
     U.setCurrency(state.settings.currency);
