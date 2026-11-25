@@ -49,7 +49,7 @@ a { color: var(--accent); }
 .app { display: grid; grid-template-columns: 250px 1fr; height: 100vh; }
 .sidebar { background: linear-gradient(180deg, #0a0e16 0%, #080b11 100%); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
 .brand { display: flex; align-items: center; gap: 12px; padding: 22px 20px 18px; -webkit-app-region: drag; }
-.brand-mark { width: 38px; height: 38px; border-radius: 11px; background: radial-gradient(circle at 30% 25%, #ffc066, #f7931a 55%, #b8620a); display: grid; place-items: center; color: #1a0f00; font-weight: 900; font-size: 19px; box-shadow: 0 6px 20px rgba(247, 147, 26, 0.35), inset 0 1px 0 rgba(255,255,255,.4); letter-spacing: -1px; }
+.brand-mark { width: 38px; height: 38px; border-radius: 11px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231a0f00' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 5v14M13 5v2M13 17v2'/%3E%3Cpath d='M7 7h7.5a2.5 2.5 0 010 5H7h8a2.5 2.5 0 010 5H7'/%3E%3C/svg%3E") center / 70% no-repeat, radial-gradient(circle at 30% 25%, #ffc066, #f7931a 55%, #b8620a); box-shadow: 0 6px 20px rgba(247, 147, 26, 0.35), inset 0 1px 0 rgba(255,255,255,.4); font-size: 0 !important; color: transparent; flex-shrink: 0; } /* logo: line-style ₿ on the orange tile (same as build/icon.svg) */
 .brand-t b { display: block; font-size: 18px; letter-spacing: 3px; font-weight: 800; }
 .brand-t small { color: var(--muted); font-size: 10.5px; letter-spacing: .4px; }
 .nav { flex: 1; overflow-y: auto; padding: 4px 12px 16px; }

@@ -2,6 +2,10 @@
 
 Each `## x.y.z` section becomes the GitHub Release notes for that version.
 
+## 1.5.1
+
+- New BLAM logo: a clean, rounded ₿ on the orange BLAM tile. It's used for the app icon on Windows, Mac and Linux, the iPhone and Android Home Screen icons, and inside the app.
+
 ## 1.5.0
 
 **Statement → AI → BLAM**
