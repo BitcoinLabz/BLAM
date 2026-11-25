@@ -2,6 +2,17 @@
 
 Each `## x.y.z` section becomes the GitHub Release notes for that version.
 
+## 1.6.0
+
+**Sync between your computer and phone (optional, free, private)**
+- **Settings → Sync → Turn on sync** on one device, then **I have a sync key** on the other. Add a transaction on your PC and it's on your phone the next time you open BLAM, and the other way round.
+- End-to-end encrypted: your data is compressed and encrypted on the device before it leaves. The sync server only stores scrambled data it can't read. No email, no password: just a 24-character sync key that only your devices hold.
+- Smart merging: each transaction, account, bill and holding merges separately, so editing on both devices never wipes out changes. Account and loan balances are recalculated from the merged transactions, and bills auto-posted by both devices count once.
+- Works offline and catches up when you reconnect. Syncs a few seconds after a change, when you open the app, and every 30 seconds while it's open.
+- Recovery kit: copy or download your sync key. Reinstall BLAM anywhere, enter the key, and everything comes back.
+- **Turn off sync** keeps your data on the device and can delete the encrypted copy from the server. Other devices notice and stop syncing, without losing their data.
+- Synced data no device has opened for 12 months is deleted from the server automatically.
+
 ## 1.5.2
 
 **Updates arrive with a pop-up**

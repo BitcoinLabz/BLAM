@@ -1,7 +1,7 @@
 {
   "name": "blam",
   "productName": "BLAM",
-  "version": "1.5.2",
+  "version": "1.6.0",
   "description": "BLAM — Bitcoin Labz Asset Manager. A private, local-first desktop command center for your entire financial life: crypto, stocks, ETFs, dividends, real estate, rentals, loans, metals, passive income, budgets and spending.",
   "main": "src/main/main.js",
   "author": {
@@ -17,8 +17,9 @@
     "dist:win": "electron-builder --win --publish never",
     "dist:mac": "electron-builder --mac --publish never",
     "dist:linux": "electron-builder --linux --publish never",
-    "test": "node test/market.test.js && node test/util.test.js && node test/changelog.test.js",
-    "build:web": "node scripts/build-web.js"
+    "test": "node test/market.test.js && node test/util.test.js && node test/changelog.test.js && node test/syncmerge.test.js && node --no-warnings test/sync-worker.test.js",
+    "build:web": "node scripts/build-web.js",
+    "sync:dev": "node --no-warnings scripts/sync-dev-server.js"
   },
   "devDependencies": {
     "electron": "^37.2.0",

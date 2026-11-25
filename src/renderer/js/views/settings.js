@@ -173,7 +173,7 @@
           ${UI.card({ title: 'Security & privacy', body: `<div class="list">
             <div class="li"><div class="li-ic">${UI.icon('lock')}</div><div class="li-m"><div class="li-t">PIN lock</div><div class="li-s">${st.pinHash ? 'Enabled — required at launch' : 'Off'}</div></div>${st.pinHash ? UI.btn('Remove', 'rmPin', { kind: 'ghost' }) : ''}${UI.btn(st.pinHash ? 'Change' : 'Set PIN', 'pin')}</div>
             <div class="li"><div class="li-ic">${UI.icon('eyeoff')}</div><div class="li-m"><div class="li-t">Privacy mode</div><div class="li-s">Blurs every dollar amount (hover to reveal). Toggle anytime from the top bar.</div></div><label class="switch"><input type="checkbox" id="priv" ${st.privacy ? 'checked' : ''}><span></span></label></div>
-            <div class="li"><div class="li-ic">${UI.icon('info')}</div><div class="li-m"><div class="li-t">100% local</div><div class="li-s">No accounts, no cloud, no telemetry. The only network calls are anonymous price lookups and update checks to GitHub (which you can turn off below).</div></div></div>
+            <div class="li"><div class="li-ic">${UI.icon('info')}</div><div class="li-m"><div class="li-t">Private by default</div><div class="li-s">No accounts and no tracking. Your data lives on your devices. Network use: anonymous price lookups, update checks (can be turned off) and, only if you turn on sync, encrypted data only your devices can read.</div></div></div>
           </div>` })}
         </div>
         <div class="mt">${UI.card({ title: 'Sync across your devices', sub: 'Free and end-to-end encrypted: your PC and phone stay in step, and only your devices can read your data.', actions: '<span class="tag" style="--tc:#14b8a6">Optional</span>', body: '<div id="sync-card"></div>' })}</div>

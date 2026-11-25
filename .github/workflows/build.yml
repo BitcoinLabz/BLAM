@@ -178,12 +178,50 @@ jobs:
           files: artifacts/*
           overwrite_files: true
 
+  # Sync server (Cloudflare Worker + D1, free plan). Skipped until the CLOUDFLARE_API_TOKEN and
+  # CLOUDFLARE_ACCOUNT_ID secrets exist. See README -> "Sync server". Never blocks the desktop release.
+  sync-server:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Deploy sync server
+        id: deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        working-directory: worker
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::notice::Sync server not deployed: add the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets (README -> Sync server)."
+            exit 0
+          fi
+          W="npx --yes wrangler@4"
+          dbid() { $W d1 list --json | node -e "const l=JSON.parse(require('fs').readFileSync(0,'utf8'));const d=l.find(x=>x.name==='blam-sync');process.stdout.write(d?String(d.uuid||d.id||''):'')"; }
+          ID=$(dbid)
+          if [ -z "$ID" ]; then $W d1 create blam-sync; ID=$(dbid); fi
+          [ -n "$ID" ] || { echo "::error::Could not create or find the blam-sync D1 database"; exit 1; }
+          sed -i "s/__DATABASE_ID__/$ID/" wrangler.toml
+          $W d1 execute blam-sync --remote --file schema.sql
+          $W deploy 2>&1 | tee deploy.log
+          URL=$(grep -oE 'https://[A-Za-z0-9.-]+\.workers\.dev' deploy.log | head -1)
+          [ -n "$URL" ] || { echo "::error::Deployed, but no workers.dev URL found. Open the Cloudflare dashboard -> Workers & Pages once to create your workers.dev subdomain."; exit 1; }
+          curl -fsS "$URL/v1/health"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "::notice::Sync server live at $URL"
+
   # Phone / web app (installable PWA) on GitHub Pages. Needs: repo public (or a paid plan) and
   # Settings -> Pages -> Source: "GitHub Actions". Optional secret PWA_SLUG = the unlisted folder name.
   # continue-on-error: a Pages problem never blocks the desktop release.
   pages:
-    needs: build
-    if: github.ref == 'refs/heads/main'
+    needs: [build, sync-server]
+    if: always() && github.ref == 'refs/heads/main' && needs.build.result == 'success'
     runs-on: ubuntu-latest
     continue-on-error: true
     permissions:
@@ -202,6 +240,13 @@ jobs:
         run: node scripts/build-web.js
         env:
           PWA_SLUG: ${{ secrets.PWA_SLUG }}
+      # Tell the apps where the sync server is (keep the previous address if this run didn't deploy one).
+      - name: Publish sync server address
+        env:
+          SYNC_URL: ${{ needs.sync-server.outputs.url }}
+        run: |
+          if [ -z "$SYNC_URL" ]; then SYNC_URL=$(curl -fsS https://bitcoinlabz.github.io/BLAM/sync.json 2>/dev/null | node -e "try{process.stdout.write(JSON.parse(require('fs').readFileSync(0,'utf8')).url||'')}catch(e){}"); fi
+          if [ -n "$SYNC_URL" ]; then printf '{"url":"%s"}\n' "$SYNC_URL" > dist-web/sync.json; echo "sync server: $SYNC_URL"; else echo "no sync server yet"; fi
       - uses: actions/configure-pages@v5
       # One artifact name per attempt, so "Re-run failed jobs" works (deploy-pages rejects duplicate names).
       - uses: actions/upload-pages-artifact@v3

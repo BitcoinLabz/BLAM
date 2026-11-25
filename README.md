@@ -11,7 +11,7 @@ Crypto · Stocks · ETFs · Dividends · Real Estate · Rentals · Mortgages · 
 
 ## Why BLAM
 
-Most finance apps want your bank password and live in someone else's cloud. BLAM runs **entirely on your computer**. No account, no subscription, no telemetry. The only network calls are anonymous price lookups for your tickers and update checks against this repo's GitHub Releases, which you can turn off in Settings.
+Most finance apps want your bank password and live in someone else's cloud. BLAM keeps your data **on your own devices**. No account, no subscription, no telemetry. Optional **sync** keeps your computer and phone in step with end-to-end encryption: the sync server only ever sees scrambled data it can't read. Other network calls are anonymous price lookups and update checks, which you can turn off.
 
 ## Features
 
@@ -29,6 +29,7 @@ Most finance apps want your bank password and live in someone else's cloud. BLAM
 | **Precious Metals** | Gold, silver, platinum, palladium, copper valued at live COMEX spot, gold/silver ratio |
 | **Goals & FIRE** | Goals that auto-track accounts, holdings (e.g. "1 BTC") or loan payoff; FIRE calculator pre-filled from your real data with Coast FI |
 | **Reports** | Net worth composition over time, balance sheet, month-by-month income statement, top merchants, CSV export, print to PDF |
+| **Sync** | Optional, free, end-to-end encrypted sync between desktop and phone with a 24-character sync key (no email or password). Per-item merging, balances stay correct, works offline and catches up later |
 | **Security** | Optional PIN lock (SHA-256), privacy mode that blurs every number, sandboxed Electron renderer |
 
 ### Automation
@@ -83,6 +84,20 @@ npm run dist:mac     # macOS .dmg
 npm run dist:linux   # AppImage + .deb
 npm test             # offline unit tests (market-data fallbacks, CSV parsing)
 ```
+
+## Sync server (maintainers)
+
+Sync uses a tiny server (`worker/`) on Cloudflare's **free** plan: one Worker plus a D1 database. It stores one encrypted blob per sync key, and data no device has opened for 12 months is deleted automatically. The release workflow deploys it for you once two secrets exist. One-time setup, about 5 minutes:
+
+1. Create a free account at [dash.cloudflare.com](https://dash.cloudflare.com) and open **Workers & Pages** once. This creates your `*.workers.dev` address.
+2. **My Profile → API Tokens → Create Token** → template **"Edit Cloudflare Workers"** → under Permissions, **add** `Account · D1 · Edit` → Create. Copy the token.
+3. Copy your **Account ID** (Workers & Pages overview, right-hand side).
+4. In GitHub, go to **Settings → Secrets and variables → Actions** and add the secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+5. Push to `main` (or re-run the latest workflow). The **sync-server** job creates the database, deploys the Worker and publishes its address at `https://bitcoinlabz.github.io/BLAM/sync.json`, where the apps find it automatically.
+
+Run it locally with `npm run sync:dev` (uses SQLite instead of D1), and point **Settings → Sync → Advanced** at `http://127.0.0.1:8787` in a development build.
+
+**What the server can see:** a random-looking vault ID, a write-token hash, the encrypted blob and timestamps. The sync key, the encryption key and your readable data never leave your devices.
 
 ## Code signing (maintainers)
 
@@ -149,6 +164,7 @@ src/
 │  ├─ market.js      Prices & dividends with Yahoo → Nasdaq → CoinGecko fallbacks
 │  ├─ updater.js     Auto-updates from GitHub Releases (electron-updater)
 │  └─ preload.js     Narrow contextBridge API (no Node in the renderer)
+worker/              Sync server (Cloudflare Worker + D1): stores encrypted blobs only
 ├─ web/             Phone app extras: icons, service-worker bootstrap (scripts/build-web.js builds the PWA)
 └─ renderer/
    ├─ index.html     Shell + strict Content-Security-Policy (shared by desktop and phone)
@@ -161,6 +177,8 @@ src/
       ├─ charts.js       Zero-dependency SVG charts (line/area, bar, donut, sparkline) with tooltips
       ├─ ui.js           Icons, modals, schema-driven forms, toasts
       ├─ automation.js   Recurring engine, loan autopay, live prices, dividend sync, reminders
+      ├─ syncmerge.js    Three-way per-item merge for sync (pure, unit-tested)
+      ├─ sync.js         Sync key, encryption (AES-GCM), pull / merge / push
       ├─ sample.js       Demo dataset
       ├─ app.js          Router & app shell
       └─ views/          One module per screen
