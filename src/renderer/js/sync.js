@@ -180,7 +180,7 @@
         return r;
       } catch (e) {
         if (e.code === 'cancelled') return null;
-        if (e.code === 'gone') { await Sync.disable().catch(() => {}); st().lastError = e.message; S.save(); UI.toast(e.message, 'warn', 9000); return null; }
+        if (e.code === 'gone') { await Sync.disable({ internal: true }).catch(() => {}); st().lastError = e.message; S.save(); UI.toast(e.message, 'warn', 9000); return null; }
         const first = st().lastError !== e.message;
         st().lastError = e.message; st().lastErrorCode = e.code || 'error'; S.save();
         if (!quiet || (first && e.code !== 'offline')) UI.toast(e.message, e.code === 'offline' ? 'warn' : 'error', 5000);
@@ -246,9 +246,9 @@
   };
 
   /** Turn off on this device; optionally delete the encrypted copy from the server too. */
-  Sync.disable = async ({ deleteServer = false } = {}) => {
+  Sync.disable = async ({ deleteServer = false, internal = false } = {}) => {
     gen++;
-    if (running) await running.catch(() => {}); // let an in-flight sync stop before deleting
+    if (running && !internal) await running.catch(() => {}); // let an in-flight sync stop first (not when called from inside it)
     if (deleteServer && keys) {
       const server = await Sync.server();
       const r = await http('DELETE', `${server}/v1/vault/${keys.id}`, { auth: keys.auth });
