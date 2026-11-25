@@ -91,6 +91,7 @@
     holdings: [], dividends: [], properties: [], loans: [], metals: [],
     metalPrices: { gold: 0, silver: 0, platinum: 0, palladium: 0, copper: 0, updated: null },
     passive: [], otherAssets: [], recurring: [], goals: [], snapshots: [], log: [],
+    sync: { on: false }, // device-only sync state (never synced itself)
   });
 
   /** Bring any saved data up to the current schema. Only ever adds; never drops user data. */
@@ -152,10 +153,20 @@
     await saving;
     if (reason && !S.loadProblem?.readOnly) { const sb = window.blam?.safetyBackup || B.Web?.safetyBackup; if (sb) await sb(reason); }
     if (S.loadProblem?.readOnly) S.loadProblem = null; // an explicit restore/erase is the user's decision
+    const prevSync = state && state.sync && state.sync.on ? state.sync : null;
     state = migrate(obj);
+    if (prevSync && reason === 'restore') {
+      // Restoring a backup keeps sync on and merges with the synced copy (nothing on other devices is lost).
+      state.sync = { ...prevSync, rev: 0, base: {}, lastError: null };
+    } else {
+      // Erase / demo data must never be pushed to your other devices: sync turns off on this device.
+      state.sync = { on: false };
+      if (prevSync && B.Sync) await B.Sync.disable().catch(() => {});
+    }
     U.setCurrency(state.settings.currency);
     await S.saveNow();
     emit();
+    if (state.sync.on && B.Sync) B.Sync.run();
   };
 
   Object.defineProperty(S, 'state', { get: () => state });

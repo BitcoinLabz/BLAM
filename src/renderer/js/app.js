@@ -245,6 +245,7 @@
       }).body.addEventListener('click', (e) => { if (e.target.closest('[data-act="folder"]')) window.blam.openDataFolder(); });
     }
     A.start();
+    if (B.Sync) B.Sync.start().catch((e) => console.warn('[sync]', e));
     setInterval(updateChrome, 30000);
     window.addEventListener('online', updateChrome);
     window.addEventListener('offline', updateChrome);

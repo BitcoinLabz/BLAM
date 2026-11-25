@@ -61,7 +61,101 @@
     act.innerHTML = actions;
   }
 
+  // ------------------------------------------------------------------ sync
+  /** Show the sync key with copy / download, and require "I've saved it". */
+  function recoveryKit(key, { first = false } = {}) {
+    const pretty = B.Sync.formatKey(key);
+    const m = UI.modal({
+      title: first ? 'Save your sync key' : 'Your sync key',
+      body: `<p style="margin:0 0 12px">${first ? 'Sync is on. This key is the <b>only</b> way to connect another device or restore your data if you delete BLAM everywhere.' : 'Use this key to connect another device.'} Nobody else has it, not even the people who make BLAM, so it can't be recovered if lost.</p>
+        <div class="sync-key">${U.esc(pretty)}</div>
+        <div class="page-a mt">${UI.btn('Copy key', 'copy', { icon: 'check', kind: 'primary' })}${UI.btn('Download recovery file', 'dl', { icon: 'download' })}</div>
+        <ol class="steps mt"><li>Save it somewhere safe: a password manager, a printed copy, or a note only you can see.</li>
+        <li>On your other device, open BLAM → <b>Settings → Sync → I have a sync key</b> and paste or type it.</li></ol>
+        ${first ? '<label class="switch mt"><input type="checkbox" id="saved"><span></span><em>I\'ve saved my sync key</em></label>' : ''}`,
+      footer: `<span class="grow"></span><button class="btn primary" data-done ${first ? 'disabled' : ''}>Done</button>`,
+    });
+    UI.bind(m.body, {
+      copy: async () => UI.toast(await U.copy(pretty) ? 'Sync key copied' : 'Could not copy. Select the key and copy it by hand', 'ok'),
+      dl: () => U.download('BLAM-sync-key.txt', `BLAM sync key\n\n${pretty}\n\nKeep this private. Anyone with this key can read your synced BLAM data.\nTo connect a device: BLAM → Settings → Sync → I have a sync key.\nCreated ${new Date().toLocaleString()}\n`, [{ name: 'Text', extensions: ['txt'] }]),
+    });
+    const done = m.foot.querySelector('[data-done]');
+    m.body.querySelector('#saved')?.addEventListener('change', (e) => { done.disabled = !e.target.checked; });
+    done.onclick = () => { if (first) { S.state.sync.keySaved = true; S.save(); } m.close(); syncCard(); };
+  }
+
+  function joinDialog() {
+    const local = B.SyncMerge.hasUserData(S.state);
+    const m = UI.modal({
+      title: 'Connect this device',
+      body: `<p style="margin:0 0 10px">Paste or type the sync key from your other device. It's 24 letters and numbers.</p>
+        <input class="input sync-key-in" id="jk" placeholder="K7Q2-X9M4-…" autocomplete="off" autocapitalize="characters" spellcheck="false">
+        ${local ? `<div class="field mt"><label>This device already has data</label>
+          <label class="switch"><input type="radio" name="jm" value="merge" checked><span></span><em>Combine it with the synced data</em></label>
+          <label class="switch"><input type="radio" name="jm" value="replace"><span></span><em>Replace it with the synced data</em></label></div>` : ''}
+        <p class="muted" id="jmsg" style="margin:10px 0 0"></p>`,
+      footer: '<span class="grow"></span><button class="btn ghost" data-c>Cancel</button><button class="btn primary" data-go>Connect</button>',
+    });
+    setTimeout(() => m.body.querySelector('#jk').focus(), 60);
+    m.foot.querySelector('[data-c]').onclick = m.close;
+    const go = m.foot.querySelector('[data-go]');
+    go.onclick = async () => {
+      const msg = m.body.querySelector('#jmsg');
+      go.disabled = true; msg.textContent = 'Connecting…';
+      try {
+        const mode = local ? m.body.querySelector('input[name="jm"]:checked').value : 'replace';
+        await B.Sync.join(m.body.querySelector('#jk').value, mode);
+        m.close();
+        UI.toast('This device is connected. Your data is in sync');
+        B.go('dashboard');
+      } catch (e) { msg.innerHTML = `<span class="neg">${U.esc(e.message)}</span>`; go.disabled = false; }
+    };
+  }
+
+  function turnOffDialog() {
+    const m = UI.modal({
+      title: 'Turn off sync?',
+      body: `<p style="margin:0 0 10px">This device keeps all its data and stops syncing.</p>
+        <label class="switch"><input type="checkbox" id="del"><span></span><em>Also delete my encrypted data from the sync server</em></label>
+        <p class="muted" style="margin:8px 0 0;font-size:12.5px">Only tick this if you're turning sync off on <b>all</b> your devices. Your other devices keep their own copies either way.</p>`,
+      footer: '<span class="grow"></span><button class="btn ghost" data-c>Cancel</button><button class="btn danger" data-go>Turn off sync</button>',
+    });
+    m.foot.querySelector('[data-c]').onclick = m.close;
+    m.foot.querySelector('[data-go]').onclick = async () => {
+      try { await B.Sync.disable({ deleteServer: m.body.querySelector('#del').checked }); m.close(); UI.toast(m.body.querySelector('#del').checked ? 'Sync turned off and server copy deleted' : 'Sync turned off on this device'); syncCard(); } catch (e) { UI.toast(e.message, 'error', 5000); }
+    };
+  }
+
+  /** (Re)draw the sync card in place. */
+  function syncCard() {
+    const host = document.getElementById('sync-card');
+    if (!host) return;
+    const sy = S.state.sync || {};
+    const st = S.state.settings;
+    const adv = `<details class="mt"><summary class="muted" style="cursor:pointer;font-size:12.5px">Advanced</summary>
+      <div class="field mt" style="max-width:520px"><label>Sync server (optional)</label><input class="input" id="sync-srv" placeholder="Default: BLAM's free server" value="${U.esc(st.syncServer || '')}"><small class="help">Leave blank unless you run your own BLAM sync server.</small></div></details>`;
+    if (!sy.on) {
+      host.innerHTML = `<div class="list">
+        <div class="li"><div class="li-ic">${UI.icon('lock')}</div><div class="li-m"><div class="li-t">Private by design</div><div class="li-s">Everything is encrypted on this device before it leaves. The server only stores scrambled data it can't read. No email, no password.</div></div></div>
+        <div class="li"><div class="li-ic">${UI.icon('refresh')}</div><div class="li-m"><div class="li-t">Automatic</div><div class="li-s">Add a transaction on your PC and it's on your phone the next time you open BLAM (and the other way round).</div></div></div>
+      </div>
+      <div class="page-a mt">${UI.btn('Turn on sync', 'sync-on', { icon: 'check', kind: 'primary' })}${UI.btn('I have a sync key', 'sync-join', { icon: 'lock' })}</div>
+      ${sy.lastError ? `<div class="callout warn mt">${UI.icon('info')}<div>${U.esc(sy.lastError)}</div></div>` : ''}${adv}`;
+    } else {
+      const ok = !sy.lastError;
+      host.innerHTML = `<div class="list">
+        <div class="li"><div class="li-ic" style="color:${ok ? 'var(--pos)' : 'var(--warn)'}">${UI.icon(ok ? 'check' : 'info')}</div><div class="li-m"><div class="li-t">${ok ? 'Sync is on' : 'Sync is on, last attempt failed'}</div><div class="li-s">${sy.lastSync ? `Last synced ${U.timeAgo(sy.lastSync)}` : 'Not synced yet'}${sy.lastError ? ` · ${U.esc(sy.lastError)}` : ''}</div></div>${UI.btn('Sync now', 'sync-now', { icon: 'refresh' })}</div>
+        ${sy.keySaved ? '' : `<div class="callout warn" style="margin:10px 0">${UI.icon('info')}<div><b>Save your sync key.</b> It's the only way to restore your data if you delete BLAM everywhere. ${UI.btn('Show key', 'sync-key')}</div></div>`}
+        <div class="li"><div class="li-ic">${UI.icon('lock')}</div><div class="li-m"><div class="li-t">Connect another device</div><div class="li-s">Show your sync key, then enter it on the other device under Settings → Sync.</div></div>${UI.btn('Show sync key', 'sync-key')}</div>
+        <div class="li"><div class="li-ic">${UI.icon('x')}</div><div class="li-m"><div class="li-t">Turn off sync</div><div class="li-s">Keeps your data on this device. Optionally deletes the encrypted copy from the server.</div></div><button class="btn danger" data-act="sync-off">Turn off</button></div>
+      </div>
+      <p class="muted" style="margin:10px 0 0;font-size:12px">Synced data no device has opened for 12 months is deleted from the server automatically.</p>${adv}`;
+    }
+    host.querySelector('#sync-srv')?.addEventListener('change', (e) => { S.setting('syncServer', e.target.value.trim()); S.state.sync.serverAt = 0; UI.toast('Saved'); });
+  }
+
   B.views.settings = {
+    syncCard,
     importJson,
     updateCard,
     async render(root) {
@@ -82,6 +176,7 @@
             <div class="li"><div class="li-ic">${UI.icon('info')}</div><div class="li-m"><div class="li-t">100% local</div><div class="li-s">No accounts, no cloud, no telemetry. The only network calls are anonymous price lookups and update checks to GitHub (which you can turn off below).</div></div></div>
           </div>` })}
         </div>
+        <div class="mt">${UI.card({ title: 'Sync across your devices', sub: 'Free and end-to-end encrypted: your PC and phone stay in step, and only your devices can read your data.', actions: '<span class="tag" style="--tc:#14b8a6">Optional</span>', body: '<div id="sync-card"></div>' })}</div>
         <div class="grid g2 mt">
           ${UI.card({ title: 'Your data', body: `<p class="muted" style="margin-top:0">${counts}</p><div id="data-info" class="muted" style="font-size:12.5px;margin-bottom:14px"></div>
             <div class="page-a">${UI.btn('Export backup', 'export', { icon: 'download', kind: 'primary' })}${UI.btn('Restore from file', 'import', { icon: 'upload' })}${window.blam ? UI.btn('Open data folder', 'folder', { icon: 'report' }) : ''}</div>
@@ -119,7 +214,16 @@
         });
         window.blam.updateState().then(updateCard);
       }
+      syncCard();
       UI.bind(root, {
+        'sync-on': async (d, el) => {
+          el.disabled = true;
+          try { const key = await B.Sync.enable(); recoveryKit(key, { first: true }); } catch (e) { UI.toast(e.message, 'error', 6000); } finally { el.disabled = false; syncCard(); }
+        },
+        'sync-join': joinDialog,
+        'sync-now': () => B.Sync.run({ quiet: false }),
+        'sync-key': async () => { const k = await B.Sync.key(); if (k) recoveryKit(k, { first: !S.state.sync.keySaved }); else UI.toast('No sync key on this device', 'warn'); },
+        'sync-off': turnOffDialog,
         pin: setPin,
         rmPin: async () => { if (await UI.confirm('Remove the PIN lock?', { ok: 'Remove' })) S.setting('pinHash', null); },
         export: exportJson,

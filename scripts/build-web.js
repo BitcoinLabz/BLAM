@@ -41,6 +41,8 @@ html = html.replace('<link rel="stylesheet" href="css/app.css">', [
 ].join('\n'));
 html = html.replace('<script src="js/util.js"></script>', `<script src="js/version.js"></script>\n  <script src="js/util.js"></script>`);
 html = html.replace('<script src="js/app.js"></script>', '<script src="js/app.js"></script>\n  <script src="js/pwa.js"></script>');
+// Test builds only: let the page reach a local sync server (never set in CI).
+if (process.env.BLAM_TEST_CONNECT) html = html.replace('connect-src ', `connect-src ${process.env.BLAM_TEST_CONNECT} `);
 fs.writeFileSync(htmlFile, html);
 fs.writeFileSync(path.join(out, 'js/version.js'), `window.BLAM_WEB_VERSION = ${JSON.stringify(pkg.version)};\n`);
 

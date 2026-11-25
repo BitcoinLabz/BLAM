@@ -12,7 +12,7 @@
  */
 'use strict';
 
-const { app, BrowserWindow, ipcMain, dialog, shell, Notification, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Notification, Menu, safeStorage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { cryptoPrices, cryptoSearch, quotes, dividendHistory } = require('./market');
@@ -279,6 +279,40 @@ function registerIpc() {
   ipcMain.handle('prices:dividends', (_e, symbol, years) => dividendHistory(symbol, years));
   ipcMain.handle('crypto:search', (_e, q) => cryptoSearch(q));
 
+
+  // Sync: HTTP to the sync server (from main, so no CORS/CSP issues) and the sync key in the OS keychain.
+  const allowLocalSync = !app.isPackaged || !!process.env.BLAM_ALLOW_LOCAL_SYNC;
+  ipcMain.handle('sync:http', async (_e, { url, method = 'GET', headers = {}, body } = {}) => {
+    const u = new URL(String(url));
+    const local = ['127.0.0.1', 'localhost'].includes(u.hostname);
+    if (!(u.protocol === 'https:' || (allowLocalSync && local && u.protocol === 'http:'))) throw new Error('Sync server must use https');
+    if (!['GET', 'PUT', 'DELETE'].includes(method)) throw new Error('Bad method');
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 30000);
+    try {
+      const res = await fetch(u, { method, headers: { 'User-Agent': 'BLAM', ...headers }, body, signal: ctrl.signal });
+      return { status: res.status, text: await res.text() };
+    } catch (e) {
+      return { status: 0, text: '', error: e.name === 'AbortError' ? 'timeout' : String(e.cause?.code || e.message) };
+    } finally { clearTimeout(t); }
+  });
+  const keyFile = () => path.join(dataDir(), 'sync.key');
+  ipcMain.handle('sync:key:get', () => {
+    try {
+      const buf = fs.readFileSync(keyFile());
+      if (buf.subarray(0, 6).toString() === 'PLAIN:') return buf.subarray(6).toString();
+      return safeStorage.decryptString(buf);
+    } catch (_) { return null; }
+  });
+  ipcMain.handle('sync:key:set', (_e, key) => {
+    const k = String(key || '');
+    if (!/^[0-9A-Z]{24}$/.test(k)) throw new Error('Bad sync key');
+    // OS keychain when available; otherwise a file only this user can read (same protection as the data file).
+    const blob = safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(k) : Buffer.from(`PLAIN:${k}`);
+    fs.writeFileSync(keyFile(), blob, { mode: 0o600 });
+    return true;
+  });
+  ipcMain.handle('sync:key:clear', () => { try { fs.unlinkSync(keyFile()); } catch (_) { /* none */ } return true; });
 
   // Auto-updates (GitHub Releases)
   ipcMain.handle('update:state', () => updater.getState());

@@ -24,6 +24,9 @@
   /** Post one occurrence of a recurring item on `date`. Returns a description. */
   A.postRecurring = (r, date) => {
     const s = S.state;
+    // Same id on every device, so a bill auto-posted by both your PC and phone merges into one when synced.
+    const rid = (suffix = '') => `r-${r.id}-${date}${suffix}`;
+    if (s.transactions.some((t) => t.id === rid() || t.id === rid('-out'))) return null; // already posted (here or via sync)
     if (r.kind === 'loan') {
       const loan = s.loans.find((l) => l.id === r.loanId);
       if (!loan) return null;
@@ -33,7 +36,7 @@
       const principal = Math.min(U.num(loan.balance), Math.max(0, pmt - interest) + extra);
       const total = U.round(Math.min(pmt + extra, U.num(loan.balance) + interest) + U.num(loan.escrow));
       S.addTransaction({
-        date, accountId: r.accountId, payee: r.name || loan.name, amount: -total,
+        id: rid(), date, accountId: r.accountId, payee: r.name || loan.name, amount: -total,
         category: r.category || A.LOAN_CATEGORY[loan.type] || 'Loan Payment', recurringId: r.id, loanId: loan.id,
         note: `Auto: principal ${U.money(principal)} · interest ${U.money(interest)}${U.num(loan.escrow) ? ` · escrow ${U.money(loan.escrow)}` : ''}`,
       }, { silent: true });
@@ -45,15 +48,15 @@
     }
     if (r.kind === 'transfer') {
       const amt = Math.abs(U.num(r.amount));
-      S.addTransaction({ date, accountId: r.accountId, payee: r.name, amount: -amt, category: r.category || 'Transfer', recurringId: r.id, note: 'Auto transfer out' }, { silent: true });
+      S.addTransaction({ id: rid('-out'), date, accountId: r.accountId, payee: r.name, amount: -amt, category: r.category || 'Transfer', recurringId: r.id, note: 'Auto transfer out' }, { silent: true });
       if (r.toAccountId) {
         const to = s.accounts.find((a) => a.id === r.toAccountId);
-        S.addTransaction({ date, accountId: r.toAccountId, payee: r.name, amount: amt, category: to && S.accountKind(to) === 'credit' ? 'Credit Card Payment' : (r.category || 'Transfer'), recurringId: r.id, note: 'Auto transfer in' }, { silent: true });
+        S.addTransaction({ id: rid('-in'), date, accountId: r.toAccountId, payee: r.name, amount: amt, category: to && S.accountKind(to) === 'credit' ? 'Credit Card Payment' : (r.category || 'Transfer'), recurringId: r.id, note: 'Auto transfer in' }, { silent: true });
       }
       return `${r.name}: transferred ${U.money(amt)}`;
     }
     const amt = Math.abs(U.num(r.amount)) * (r.kind === 'income' ? 1 : -1);
-    S.addTransaction({ date, accountId: r.accountId, payee: r.name, amount: amt, category: r.category, recurringId: r.id, propertyId: r.propertyId, note: 'Auto-posted' }, { silent: true });
+    S.addTransaction({ id: rid(), date, accountId: r.accountId, payee: r.name, amount: amt, category: r.category, recurringId: r.id, propertyId: r.propertyId, note: 'Auto-posted' }, { silent: true });
     return `${r.name}: ${amt > 0 ? '+' : ''}${U.money(amt)}`;
   };
 

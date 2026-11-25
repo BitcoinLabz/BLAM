@@ -67,6 +67,9 @@
       return (await keys()).filter((k) => /^(backup|before)-/.test(k)).sort().reverse();
     },
     async restoreBackup(k) { return tx('readonly', async (st, done) => done(await req(st.get(k)))); },
+    /** The sync key lives apart from the data (never in exports or backups). */
+    async getSecret(name) { return tx('readonly', async (st, done) => done((await req(st.get(`secret-${name}`))) ?? null)); },
+    async setSecret(name, value) { await tx('readwrite', (st) => { if (value == null) st.delete(`secret-${name}`); else st.put(String(value), `secret-${name}`); }); },
     /** Ask the browser not to evict our data under storage pressure (installed PWAs usually get this). */
     async persist() {
       try { return navigator.storage?.persist ? await navigator.storage.persist() : false; } catch (_) { return false; }

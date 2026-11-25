@@ -50,13 +50,14 @@
 
   function postNow(r) {
     const msg = A.postRecurring(r, U.today());
+    if (!msg) { UI.toast(`${r.name} is already posted for today`, 'warn'); return; }
     S.commit((s) => {
       const x = s.recurring.find((y) => y.id === r.id);
       x.lastPosted = U.today();
       if (x.nextDate <= U.addDays(U.today(), 10)) x.nextDate = U.nextOccurrence(x.nextDate, x.frequency, x.anchorDay);
     });
     S.log(`Manually posted: ${msg}`);
-    UI.toast(msg || 'Posted');
+    UI.toast(msg);
   }
 
   B.views.recurring = {

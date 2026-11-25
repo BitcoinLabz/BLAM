@@ -1,0 +1,14 @@
+# BLAM sync server (Cloudflare Workers free plan + D1).
+# CI fills in database_id automatically (see .github/workflows/build.yml, job "sync-server").
+name = "blam-sync"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "blam-sync"
+database_id = "__DATABASE_ID__"
+
+# Daily clean-up of vaults no device has touched for 12 months.
+[triggers]
+crons = ["17 4 * * *"]
