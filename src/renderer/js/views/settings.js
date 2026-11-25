@@ -93,7 +93,7 @@
         </div>
         ${window.blam?.updateState ? `<div class="mt">${UI.card({ title: 'Updates', body: `<div class="list">
           <div class="li"><div class="li-ic">${UI.icon('download')}</div><div class="li-m"><div class="li-t" id="upd-title">Checking version…</div><div class="li-s" id="upd-sub"></div></div><div class="page-a" id="upd-actions"></div></div>
-          <div class="li"><div class="li-m"><div class="li-t">Automatically check for updates</div><div class="li-s">When BLAM opens and every 6 hours. Updates download in the background from GitHub and install when you restart.</div></div><label class="switch"><input type="checkbox" id="upd-auto" ${st.autoUpdate !== false ? 'checked' : ''}><span></span></label></div>
+          <div class="li"><div class="li-m"><div class="li-t">Automatically check for updates</div><div class="li-s">When BLAM opens and every 2 hours. Updates download in the background from GitHub and install when you restart.</div></div><label class="switch"><input type="checkbox" id="upd-auto" ${st.autoUpdate !== false ? 'checked' : ''}><span></span></label></div>
         </div>` })}</div>` : ''}
         <div class="mt">${UI.card({ body: `<div style="display:flex;align-items:center;gap:16px"><div class="brand-mark">B</div><div><b style="font-size:16px;letter-spacing:2px">BLAM</b> <span class="muted">· Bitcoin Labz Asset Manager</span><div class="muted" style="font-size:12.5px;margin-top:3px" id="ver">Local-first personal finance · MIT licensed · github.com/BitcoinLabz/BLAM</div></div></div>` })}</div>`;
 

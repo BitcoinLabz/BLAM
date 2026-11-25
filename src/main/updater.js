@@ -13,7 +13,7 @@
 const { app } = require('electron');
 
 const RELEASES_URL = 'https://github.com/BitcoinLabz/BLAM/releases/latest';
-const CHECK_EVERY_MS = 6 * 3600e3;
+const CHECK_EVERY_MS = 2 * 3600e3; // and 15s after launch
 
 let updater = null;
 let send = () => {};

@@ -4,17 +4,44 @@
   if (!('serviceWorker' in navigator) || location.protocol === 'file:') return;
   const B = window.BLAM;
 
-  navigator.serviceWorker.register('sw.js').then((reg) => {
-    const offer = (worker) => {
-      if (!worker || !navigator.serviceWorker.controller) return; // first install: nothing to replace
-      const show = () => B?.UI?.toast ? B.UI.toast('A new version of BLAM is ready. It will load the next time you open the app.', 'ok', 7000) : null;
-      if (worker.state === 'installed') show();
-      else worker.addEventListener('statechange', () => { if (worker.state === 'installed') show(); });
-    };
-    offer(reg.waiting);
-    reg.addEventListener('updatefound', () => offer(reg.installing));
-    // Check for a new version whenever the app comes back to the foreground.
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+  // ---- Updates ---------------------------------------------------------------
+  // A new service worker takes over as soon as it has downloaded the new version (skipWaiting in sw.js).
+  // Then: just opened -> reload straight away; in the middle of something -> ask; "Later" -> apply on return.
+  const startedAt = Date.now();
+  const hadController = !!navigator.serviceWorker.controller;
+  let pending = false, asked = false;
+  const restart = async () => {
+    try { await B?.S?.saveNow?.(); } catch (_) { /* nothing to save */ }
+    location.reload();
+  };
+  const ask = () => {
+    if (asked || !B?.UI?.modal) return;
+    asked = true;
+    const m = B.UI.modal({
+      title: 'BLAM has been updated',
+      body: '<p style="margin:0 0 6px">A new version of BLAM is ready. Restart now to use it. Your data stays exactly as it is.</p>',
+      footer: '<span class="grow"></span><button class="btn ghost" data-later>Later</button><button class="btn primary" data-now>Restart now</button>',
+    });
+    m.foot.querySelector('[data-now]').onclick = restart;
+    m.foot.querySelector('[data-later]').onclick = () => { m.close(); };
+  };
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || pending) return; // first install: nothing to replace
+    pending = true;
+    const busy = document.querySelector('.modal-back.in');
+    if (Date.now() - startedAt < 20000 && !busy) restart(); else ask();
+  });
+  // "Later": apply the update when the user comes back to the app.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && pending && !document.querySelector('.modal-back.in')) restart();
+  });
+
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+    const check = () => reg.update().catch(() => {});
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+    setInterval(check, 30 * 60 * 1000);
+    // A worker left waiting by an older version of BLAM: apply it now.
+    if (reg.waiting && navigator.serviceWorker.controller) reg.waiting.postMessage('skipWaiting');
   }).catch((e) => console.warn('[pwa] service worker', e));
 
   // Ask the browser to keep our data (installed apps are normally granted this).

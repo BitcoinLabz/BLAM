@@ -202,7 +202,19 @@
         btn.hidden = st.status !== 'ready';
         if (st.status === 'ready') {
           btn.innerHTML = `${UI.icon('download', 14)}<span>Update to ${U.esc(st.available?.version || 'new version')}</span>`;
-          if (announced !== st.available?.version) { announced = st.available?.version; UI.toast(`BLAM ${st.available?.version || ''} is ready. Click "Update" in the top bar to restart.`, 'ok', 8000); }
+          if (announced !== st.available?.version) {
+            announced = st.available?.version;
+            // Pop-up as soon as the new version has downloaded. "Later" keeps the top-bar button and installs on quit.
+            const m = UI.modal({
+              title: `BLAM ${U.esc(st.available?.version || '')} is ready`,
+              body: `<p style="margin:0 0 8px">A new version of BLAM has downloaded. Restart to update. It takes a few seconds and your data stays exactly as it is.</p>
+                <p class="muted" style="margin:0;font-size:12.5px">Choose Later and it installs automatically the next time you close BLAM.</p>`,
+              footer: `<button class="btn ghost" data-notes>What's new</button><span class="grow"></span><button class="btn ghost" data-later>Later</button><button class="btn primary" data-now>${UI.icon('refresh', 15)} Restart &amp; update</button>`,
+            });
+            m.foot.querySelector('[data-now]').onclick = async () => { await S.saveNow(); window.blam.updateInstall(); };
+            m.foot.querySelector('[data-later]').onclick = () => m.close();
+            m.foot.querySelector('[data-notes]').onclick = () => window.blam.openReleases();
+          }
         }
         if (location.hash.startsWith('#/settings')) B.views.settings.updateCard?.(st);
       };

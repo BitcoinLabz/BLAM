@@ -2,6 +2,13 @@
 
 Each `## x.y.z` section becomes the GitHub Release notes for that version.
 
+## 1.5.2
+
+**Updates arrive with a pop-up**
+- Desktop: when a new version has downloaded, BLAM pops up **"BLAM x.y.z is ready: Restart & update / Later"**. Later installs it automatically the next time you close BLAM. Checks run 15 seconds after launch and every 2 hours.
+- Phone: new versions install as soon as they're found. If you've just opened the app it reloads into the new version straight away; otherwise it asks **"BLAM has been updated: Restart now / Later"**. Later applies the update when you next return to the app. Checks run every time you open the app and every 30 minutes.
+- Phones on 1.5.1 or earlier need to fully close and reopen BLAM once to get this.
+
 ## 1.5.1
 
 - New BLAM logo: a clean, rounded orange ₿ on a dark tile. It's used for the app icon on Windows, Mac and Linux, the iPhone and Android Home Screen icons, and inside the app.
