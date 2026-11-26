@@ -202,6 +202,13 @@ jobs:
             echo "::notice::Sync server not deployed: add the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets (README -> Sync server)."
             exit 0
           fi
+          # Tolerate pasted extras (line breaks, spaces, "Bearer ...", a copied curl line): keep just the token / ID.
+          TOKEN=$(printf '%s' "$CLOUDFLARE_API_TOKEN" | grep -oE '[A-Za-z0-9_-]{40}' | head -1)
+          ACCT=$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | grep -oiE '[a-f0-9]{32}' | head -1)
+          [ -n "$TOKEN" ] || { echo "::error::CLOUDFLARE_API_TOKEN doesn't contain a Cloudflare API token (40 letters/numbers). Re-create the secret with just the token."; exit 1; }
+          [ -n "$ACCT" ] || { echo "::error::CLOUDFLARE_ACCOUNT_ID doesn't contain an Account ID (32 characters, 0-9 and a-f). Re-create the secret with just the ID."; exit 1; }
+          echo "::add-mask::$TOKEN"
+          export CLOUDFLARE_API_TOKEN="$TOKEN" CLOUDFLARE_ACCOUNT_ID="$ACCT"
           W="npx --yes wrangler@4"
           dbid() { $W d1 list --json | node -e "const l=JSON.parse(require('fs').readFileSync(0,'utf8'));const d=l.find(x=>x.name==='blam-sync');process.stdout.write(d?String(d.uuid||d.id||''):'')"; }
           ID=$(dbid)
