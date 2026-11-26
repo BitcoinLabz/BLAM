@@ -203,11 +203,27 @@ jobs:
             exit 0
           fi
           # Tolerate pasted extras (line breaks, spaces, "Bearer ...", a copied curl line): keep just the token / ID.
-          TOKEN=$(printf '%s' "$CLOUDFLARE_API_TOKEN" | grep -oE '[A-Za-z0-9_-]{40}' | head -1)
+          # Diagnostics without revealing anything: how many lines, and each line's length.
+          echo "token secret: $(printf '%s\n' "$CLOUDFLARE_API_TOKEN" | grep -c .) non-empty line(s), lengths: $(printf '%s\n' "$CLOUDFLARE_API_TOKEN" | awk 'NF{printf "%d ", length($0)}')"
+          if printf '%s' "$CLOUDFLARE_API_TOKEN" | grep -qE 'Bearer[[:space:]]+'; then
+            TOKEN=$(printf '%s' "$CLOUDFLARE_API_TOKEN" | grep -oE 'Bearer[[:space:]]+[^[:space:]"]+' | head -1 | awk '{print $2}')
+          else
+            TOKEN=$(printf '%s\n' "$CLOUDFLARE_API_TOKEN" | awk 'NF{gsub(/^[[:space:]]+|[[:space:]]+$/, ""); print; exit}')
+          fi
+          [ -n "$TOKEN" ] && echo "::add-mask::$TOKEN"
+          echo "using a token of length ${#TOKEN}"
           ACCT=$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | grep -oiE '[a-f0-9]{32}' | head -1)
-          [ -n "$TOKEN" ] || { echo "::error::CLOUDFLARE_API_TOKEN doesn't contain a Cloudflare API token (40 letters/numbers). Re-create the secret with just the token."; exit 1; }
+          [ -n "$TOKEN" ] || { echo "::error::CLOUDFLARE_API_TOKEN is empty. Re-create the secret with just the token."; exit 1; }
+          # Check the token before doing anything else, with a clear message.
+          V=$(curl -sS -H "Authorization: Bearer $TOKEN" "https://api.cloudflare.com/client/v4/accounts/$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | grep -oiE '[a-f0-9]{32}' | head -1)/tokens/verify")
+          U=$(curl -sS -H "Authorization: Bearer $TOKEN" "https://api.cloudflare.com/client/v4/user/tokens/verify")
+          if ! printf '%s%s' "$V" "$U" | grep -q '"status":"active"'; then
+            echo "::error::Cloudflare rejected CLOUDFLARE_API_TOKEN. Create a new API token and paste ONLY the token value (not the token name or the test command) into the secret."
+            printf '%s\n%s\n' "$V" "$U" | sed -E 's/"id":"[^"]+"/"id":"…"/g' | head -c 600; echo
+            exit 1
+          fi
+          echo "Cloudflare token is valid"
           [ -n "$ACCT" ] || { echo "::error::CLOUDFLARE_ACCOUNT_ID doesn't contain an Account ID (32 characters, 0-9 and a-f). Re-create the secret with just the ID."; exit 1; }
-          echo "::add-mask::$TOKEN"
           export CLOUDFLARE_API_TOKEN="$TOKEN" CLOUDFLARE_ACCOUNT_ID="$ACCT"
           W="npx --yes wrangler@4"
           dbid() { $W d1 list --json | node -e "const l=JSON.parse(require('fs').readFileSync(0,'utf8'));const d=l.find(x=>x.name==='blam-sync');process.stdout.write(d?String(d.uuid||d.id||''):'')"; }
